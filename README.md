@@ -12,6 +12,7 @@ Benchmark for evaluating pedestrian action prediction algorithms that inlcude co
 Videolar
 PIE-MASTER içindeki data_cache klasörü 
 bu kodların alındığı yerdeki data klasörü içindeki models klasörü
+
 # Çalıştırma
 not.py run edilerek data çekilir(sadece 1.video'lar olsun)
 "annotated" yazıyor ama asıl yapmamız gereken "all". Her şeyi hazırlayınca "all"'u çalıştarabilecek pc buldum
