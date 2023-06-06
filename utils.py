@@ -70,12 +70,12 @@ def get_pose(img_sequences,
             flip_image = False
             
             if dataset == 'pie':
-                set_id = imp.split('/')[-3]
+                set_id = imp.split('\\')[-3]
             elif dataset == 'jaad':
                 set_id = 'set01'
             
-            vid_id = imp.split('/')[-2]
-            img_name = imp.split('/')[-1].split('.')[0]
+            vid_id = imp.split('\\')[-2]
+            img_name = imp.split('\\')[-1].split('.')[0]
             if 'flip' in img_name:
                 img_name = img_name.replace('_flip', '')
                 flip_image = True
