@@ -4,7 +4,7 @@ Benchmark for evaluating pedestrian action prediction algorithms that inlcude co
 
 
 
-**Kod buradan alındı: https://github.com/ykotseruba/PedestrianActionBenchmark/tree/main 
+**Kod buradan alındı: [https://github.com/ykotseruba/PedestrianActionBenchmark/tree/main]                                                                            
 **Paper: [I. Kotseruba, A. Rasouli, J.K. Tsotsos, Benchmark for evaluating pedestrian action prediction. WACV, 2021](https://openaccess.thecvf.com/content/WACV2021/papers/Kotseruba_Benchmark_for_Evaluating_Pedestrian_Action_Prediction_WACV_2021_paper.pdf)** (see [citation](#citation) information below).
 
 
@@ -15,8 +15,12 @@ bu kodların alındığı yerdeki data klasörü içindeki models klasörü
 
 # Çalıştırma
 1-) not.py run edilerek data çekilir(sadece 1.video'lar olsun)                                                                                                      
-"annotated" yazıyor ama asıl yapmamız gereken "all". Her şeyi hazırlayınca "all"'u çalıştarabilecek pc buldum                                                        2-) "train_test.py" run edilerek model çalıştırılır(bu hem train hem test yapıyor)                                                                                    3-) "test.py" dosyasını isterseniz deneyebilirsiniz(saved_files_path = sys.argv[1] bu kısım hata verebilir)                                                          4-) Sonra öncelikli olarak "pie_data.py" harici dosyalardaki kodları tekrar yazmaya odaklanmalıyız. Hatta bazı dosaları falan birleştiririz, fonksiyon adları ve yapı aynı olmasın diye vb.                                                                                                                                            Data fonksiyonları -Model ve train fonksiyonları -Test fonksiyonları, grafikler vb.                                                                                  Herkes bu 3 parçadan birini yapsın diye düşünüyorum
-
+"annotated" yazıyor ama asıl yapmamız gereken "all". Her şeyi hazırlayınca "all"'u çalıştarabilecek pc buldum                                                        
+2-) "train_test.py" run edilerek model çalıştırılır(bu hem train hem test yapıyor)       
+3-) "test.py" dosyasını isterseniz deneyebilirsiniz(saved_files_path = sys.argv[1] bu kısım hata verebilir)     
+4-) Sonra öncelikli olarak "pie_data.py" harici dosyalardaki kodları tekrar yazmaya odaklanmalıyız. Hatta bazı dosaları falan birleştiririz, fonksiyon adları ve yapı aynı olmasın diye vb.    
+Data fonksiyonları -Model ve train fonksiyonları -Test fonksiyonları, grafikler vb.    
+Herkes bu 3 parçadan birini yapsın diye düşünüyorum
 
 ## Authors
 
