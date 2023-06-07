@@ -2,84 +2,24 @@
 
 Benchmark for evaluating pedestrian action prediction algorithms that inlcude code for training, testing and evaluating baseline and state-of-the-art models for pedestrian action prediction on PIE and JAAD datasets.
 
-<p align="center">
-  <img src="crossing_prediction_task.png" />
-</p>
 
 
+**Kod buradan alındı: [https://github.com/ykotseruba/PedestrianActionBenchmark/tree/main]                                                                            
 **Paper: [I. Kotseruba, A. Rasouli, J.K. Tsotsos, Benchmark for evaluating pedestrian action prediction. WACV, 2021](https://openaccess.thecvf.com/content/WACV2021/papers/Kotseruba_Benchmark_for_Evaluating_Pedestrian_Action_Prediction_WACV_2021_paper.pdf)** (see [citation](#citation) information below).
 
 
-# Installation instructions
-1. Download and extract PIE and JAAD datasets.
-	
-	Follow the instructions provided in [https://github.com/aras62/PIE](https://github.com/aras62/PIE) and [https://github.com/ykotseruba/JAAD](https://github.com/ykotseruba/JAAD).
+# Eksik dosyalar
+Videolar                                                                                                                                                           
+                                                                                          
 
-2. Download Python data interface.
-
-	Copy `pie_data.py` and `jaad_data.py` from the corresponding repositories into `PedestrianActionBenchmark` directory.
-
-3. Install docker (see instructions for [Ubuntu 16.04](https://chunml.github.io/ChunML.github.io/project/Installing-NVIDIA-Docker-On-Ubuntu-16.04/) and [Ubuntu 20.04](https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-20-04)).
-
-4. Change permissions for scripts in `docker` folder:
-	```
-	chmod +x docker/*.sh
-	```
-
-5. Build docker image
-
-	```
-	docker/build_docker.sh
-	```
-
-	Optionally, you may set custom image name and/or tag using this command (e.g. to use two GPUs in parallel):
-	```
-	docker/build_docker.sh -im <image_name> -t <tag>
-	```
-
-# Running instructions using Docker
-
-## Run container in interactive mode:
-
-Set paths for PIE and JAAD datasets in `docker/run_docker.sh` (see comments in the script).
-
-Then run:
-
-```
-docker/run_docker.sh
-```
-
-### Train and test models
-
-Use `train_test.py` script with `config_file`:
-```
-python train_test.py -c <config_file>
-```
-
-For example, to train PCPA model run:  
-
-```
-python train_test.py -c config_files/PCPA.yaml
-```
-
-The script will automatially save the trained model weights, configuration file and evaluation results in `models/<dataset>/<model_name>/<current_date>/` folder.
-
-See comments in the `configs_default.yaml` and `action_predict.py` for parameter descriptions.
-
-Model-specific YAML files contain experiment options `exp_opts` that overwrite options in `configs_default.yaml`.
-
-### Test saved model
-
-To re-run test on the saved model use:
-
-```
-python test_model.py <saved_files_path>
-```
-
-For example:
-```
-python test_model.py models/jaad/PCPA/01Oct2020-07h21m33s/
-```
+# Çalıştırma
+1-) not.py run edilerek data çekilir(sadece 1.video'lar olsun)                                                                                                      
+"annotated" yazıyor ama asıl yapmamız gereken "all". Her şeyi hazırlayınca "all"'u çalıştarabilecek pc buldum                                                        
+2-) "train_test.py" run edilerek model çalıştırılır(bu hem train hem test yapıyor)       
+3-) "test.py" dosyasını isterseniz deneyebilirsiniz(saved_files_path = sys.argv[1] bu kısım hata verebilir)     
+4-) Sonra öncelikli olarak "pie_data.py" harici dosyalardaki kodları tekrar yazmaya odaklanmalıyız. Hatta bazı dosaları falan birleştiririz, fonksiyon adları ve yapı aynı olmasın diye vb.    
+Data fonksiyonları -Model ve train fonksiyonları -Test fonksiyonları, grafikler vb.    
+Herkes bu 3 parçadan birini yapsın diye düşünüyorum
 
 ## Authors
 

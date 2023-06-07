@@ -22,9 +22,6 @@ model_opts:
   fusion_method: sum # only for Two-Stream network
 data_opts:
   fstride: 1
-  sample_type: beh  # beh or all only when model_opts/dataset is set to jaad
-  subset: default
-  data_split_type: default  # kfold, random, default
   seq_type: crossing
   min_track_size: 16 # tracks shorter than this length will be discarded
 net_opts:

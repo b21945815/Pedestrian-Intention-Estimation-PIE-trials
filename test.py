@@ -1,7 +1,6 @@
 from action_predict import action_prediction
 from pie_data import PIE
 import os
-import sys
 import yaml
 
 
@@ -33,5 +32,5 @@ def test_model(saved_files_path=None):
 
 
 if __name__ == '__main__':
-    saved_files_path = sys.argv[1]
+    saved_files_path = "data/models/pie/MultiRNN/07Jun2023-10h14m06s"
     test_model(saved_files_path=saved_files_path)

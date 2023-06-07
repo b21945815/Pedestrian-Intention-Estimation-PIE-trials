@@ -48,7 +48,6 @@ def run(config_file=None):
 
     # update model and training options from the config file
     for dataset_idx, dataset in enumerate(model_configs['exp_opts']['datasets']):
-        configs['data_opts']['sample_type'] = 'beh' if 'beh' in dataset else 'all'
         configs['model_opts']['overlap'] = 0.6
         configs['model_opts']['dataset'] = dataset.split('_')[0]
         configs['train_opts']['batch_size'] = model_configs['exp_opts']['batch_size'][dataset_idx]
@@ -91,7 +90,6 @@ def run(config_file=None):
 
 
 if __name__ == '__main__':
-
-    run(config_file="C:/Users/90553/Desktop/Kod/python/Group418/config_files/MultiRNN.yaml")
     run(config_file="C:/Users/90553/Desktop/Kod/python/Group418/config_files/SFRNN.yaml")
+    run(config_file="C:/Users/90553/Desktop/Kod/python/Group418/config_files/MultiRNN.yaml")
 
