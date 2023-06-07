@@ -10,8 +10,7 @@ Benchmark for evaluating pedestrian action prediction algorithms that inlcude co
 
 # Eksik dosyalar
 Videolar                                                                                                                                                           
-PIE-MASTER içindeki data_cache klasörü                                                                                                                              
-bu kodların alındığı yerdeki data klasörü içindeki models klasörü                                                                                                
+                                                                                          
 
 # Çalıştırma
 1-) not.py run edilerek data çekilir(sadece 1.video'lar olsun)                                                                                                      
