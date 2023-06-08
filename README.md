@@ -10,8 +10,7 @@ Benchmark for evaluating pedestrian action prediction algorithms that inlcude co
                                                                                                                                                        
                                                                                         
 # Çalıştırma
-1-) not.py run edilerek data çekilir(sadece 1.video'lar olsun)                                                                                                      
-"annotated" yazıyor ama asıl yapmamız gereken "all". Her şeyi hazırlayınca "all"'u çalıştarabilecek pc buldum                                                        
+1-) "dataPreparation.py" ile veriler elde edilir ama eksik dosyalar olduğundan dolayı bunu kullanmayınız. Verilerle beraber github'a yükledim.Eksik dosya olmas sebebi bazı dosyaların 100MB'i geçmesidir                                                
 2-) "train_test.py" run edilerek model çalıştırılır(bu hem train hem test yapıyor)       
 3-) "test.py" dosyasını isterseniz deneyebilirsiniz(saved_files_path = sys.argv[1] bu kısım hata verebilir)     
 4-) Sonra öncelikli olarak "pie_data.py" harici dosyalardaki kodları tekrar yazmaya odaklanmalıyız. Hatta bazı dosaları falan birleştiririz, fonksiyon adları ve yapı aynı olmasın diye vb.    
