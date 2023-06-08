@@ -151,18 +151,17 @@ class PIE(object):
             frames.insert(0, num_frames)
         return frame_ids
 
-    def extract_and_save_images(self):
+    def extract_and_save_images(self, setName, videoName):
         """
         Extracts images from clips and saves on hard drive
         """
-        set_folders = [f for f in sorted(listdir(self._clips_path))]
-        for set_id in set_folders:
-            print('Extracting frames from', set_id)
-            set_folder_path = join(self._clips_path, set_id)
-            extract_frames = self.get_frame_numbers(set_id)
+        print('Extracting frames from', setName)
+        set_folder_path = join(self._clips_path, setName)
+        extract_frames = self.get_frame_numbers(setName)
 
-            set_images_path = join(self._pie_path, "images", set_id)
-            for vid, frames in sorted(extract_frames.items()):
+        set_images_path = join(self._pie_path, "images", setName)
+        for vid, frames in sorted(extract_frames.items()):
+            if videoName == vid:
                 print(vid)
                 video_images_path = join(set_images_path, vid)
                 num_frames = frames[0]
@@ -543,30 +542,6 @@ class PIE(object):
               '\n '.join('{}: {}'.format(tag, cnt) for tag, cnt in sorted(traffic_box_count.items())),
               '\n total: ', sum(traffic_box_count.values()))
 
-    # Process pedestrian ids
-    def _get_pedestrian_ids(self):
-        """
-        Returns all pedestrian ids
-        :return: A list of pedestrian ids
-        """
-        annotations = self.generate_database()
-        pids = []
-        for sid in sorted(annotations):
-            for vid in sorted(annotations[sid]):
-                pids.extend(annotations[sid][vid]['ped_annotations'].keys())
-        return pids
-
-    # Trajectory data generation
-    def _get_data_ids(self, image_set):
-        """
-        Generates set ids and ped ids (if needed) for processing
-        :param image_set: Image-set to generate data
-        :return: Set and pedestrian ids
-        """
-        set_ids = self._get_image_set_ids(image_set)
-
-        return set_ids
-
     @staticmethod
     def _squarify(bbox, ratio, img_width):
         """
@@ -624,131 +599,35 @@ class PIE(object):
         """
         return [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2]
 
-    def generate_data_trajectory_sequence(self, image_set, **opts):
+    def generate_data_trajectory_sequence(self, image_set, min_track_size, setName="", videoName=""):
         """
         Generates pedestrian tracks
         :param image_set: the split set to produce for. Options are train, test, val.
-        :param opts:
-                'fstride': Frequency of sampling from the data.
-                'height_rng': The height range of pedestrians to use.
-                'squarify_ratio': The width/height ratio of bounding boxes. A value between (0,1). 0 the original
-                                        ratio is used.
-                'seq_type': Sequence type to generate. Options: 'trajectory', generates tracks, 'crossing', generates
-                                tracks up to 'crossing_point', 'intention' generates tracks similar to human experiments
-                'min_track_size': Min track length allowable.
+        :param min_track_size: minimum track size
+        :param setName: name of the set
+        :param videoName: name of the video
         :return: Sequence data
         """
         params = {'fstride': 1,
                   'sample_type': 'all',
                   'height_rng': [0, float('inf')],
                   'squarify_ratio': 0,
-                  'seq_type': 'intention',
-                  'min_track_size': 15}
-
-        for i in opts.keys():
-            params[i] = opts[i]
+                  'min_track_size': min_track_size}
 
         print('---------------------------------------------------------')
         print("Generating trajectory sequence data")
         self._print_dict(params)
         annot_database = self.generate_database()
-        if params['seq_type'] == 'trajectory':
-            sequence_data = self._get_trajectories(image_set, annot_database, **params)
-        elif params['seq_type'] == 'crossing':
-            sequence_data = self._get_crossing(image_set, annot_database, **params)
-        else:
-            sequence_data = self._get_intention(image_set, annot_database, **params)
+        sequence_data = self._get_crossing(image_set, annot_database, setName, videoName, **params)
         return sequence_data
 
-    def _get_trajectories(self, image_set, annotations, **params):
-        """
-        Generates trajectory data.
-        :param image_set: Data split to use
-        :param annotations: Annotations database
-        :param params: Parameters to generate data (see generate_database)
-        :return: A dictionary of trajectories
-        """
-        print('---------------------------------------------------------')
-        print("Generating trajectory data")
-
-        num_pedestrians = 0
-        seq_stride = params['fstride']
-        sq_ratio = params['squarify_ratio']
-        height_rng = params['height_rng']
-
-        image_seq, pids_seq = [], []
-        box_seq, center_seq, occ_seq = [], [], []
-        intent_seq = []
-        obds_seq, gpss_seq, head_ang_seq, gpsc_seq, yrp_seq = [], [], [], [], []
-
-        set_ids = self._get_data_ids(image_set)
-
-        for sid in set_ids:
-            print(sid)
-            if sid == "set01":
-                for vid in sorted(annotations[sid]):
-                    if vid == "video_0001":
-                        img_width = annotations[sid][vid]['width']
-                        pid_annots = annotations[sid][vid]['ped_annotations']
-                        vid_annots = annotations[sid][vid]['vehicle_annotations']
-                        for pid in sorted(pid_annots):
-                            num_pedestrians += 1
-                            frame_ids = pid_annots[pid]['frames']
-                            boxes = pid_annots[pid]['bbox']
-                            images = [self._get_image_path(sid, vid, f) for f in frame_ids]
-                            occlusions = pid_annots[pid]['occlusion']
-
-                            if height_rng[0] > 0 or height_rng[1] < float('inf'):
-                                images, boxes, frame_ids, occlusions = self._height_check(height_rng,
-                                                                                          frame_ids, boxes,
-                                                                                          images, occlusions)
-
-                            if len(boxes) / seq_stride < params['min_track_size']:  # max_obs_size: #90 + 45
-                                continue
-
-                            if sq_ratio:
-                                boxes = [self._squarify(b, sq_ratio, img_width) for b in boxes]
-
-                            image_seq.append(images[::seq_stride])
-                            box_seq.append(boxes[::seq_stride])
-                            center_seq.append([self._get_center(b) for b in boxes][::seq_stride])
-                            occ_seq.append(occlusions[::seq_stride])
-
-                            ped_ids = [[pid]] * len(boxes)
-                            pids_seq.append(ped_ids[::seq_stride])
-
-                            intent = [[pid_annots[pid]['attributes']['intention_prob']]] * len(boxes)
-                            intent_seq.append(intent[::seq_stride])
-
-                            gpsc_seq.append([(vid_annots[i]['latitude'], vid_annots[i]['longitude'])
-                                             for i in frame_ids][::seq_stride])
-                            obds_seq.append([[vid_annots[i]['OBD_speed']] for i in frame_ids][::seq_stride])
-                            gpss_seq.append([[vid_annots[i]['GPS_speed']] for i in frame_ids][::seq_stride])
-                            head_ang_seq.append([[vid_annots[i]['heading_angle']] for i in frame_ids][::seq_stride])
-                            yrp_seq.append([(vid_annots[i]['yaw'], vid_annots[i]['roll'], vid_annots[i]['pitch'])
-                                            for i in frame_ids][::seq_stride])
-
-        print('Subset: %s' % image_set)
-        print('Number of pedestrians: %d ' % num_pedestrians)
-        print('Total number of samples: %d ' % len(image_seq))
-
-        return {'image': image_seq,
-                'pid': pids_seq,
-                'bbox': box_seq,
-                'center': center_seq,
-                'occlusion': occ_seq,
-                'obd_speed': obds_seq,
-                'gps_speed': gpss_seq,
-                'heading_angle': head_ang_seq,
-                'gps_coord': gpsc_seq,
-                'yrp': yrp_seq,
-                'intention_prob': intent_seq}
-
-    def _get_crossing(self, image_set, annotations, **params):
+    def _get_crossing(self, image_set, annotations, setName="", videoName="", **params):
         """
         Generates crossing data.
         :param image_set: Data split to use
         :param annotations: Annotations database
+        :param setName: name of the set
+        :param videoName: name of the video
         :param params: Parameters to generate data (see generate_database)
         :return: A dictionary of trajectories
         """
@@ -767,59 +646,59 @@ class PIE(object):
         obds_seq, gpss_seq, head_ang_seq, gpsc_seq, yrp_seq = [], [], [], [], []
         activities = []
 
-        set_ids = self._get_data_ids(image_set)
+        set_ids = self._get_image_set_ids(image_set)
+        if setName != "":
+            set_ids = [setName]
         for sid in set_ids:
-            print(sid)
-            if sid == "set01":
-                for vid in sorted(annotations[sid]):
-                    if vid == "video_0001":
-                        img_width = annotations[sid][vid]['width']
-                        pid_annots = annotations[sid][vid]['ped_annotations']
-                        vid_annots = annotations[sid][vid]['vehicle_annotations']
-                        for pid in sorted(pid_annots):
-                            num_pedestrians += 1
+            for vid in sorted(annotations[sid]):
+                if videoName == "" or vid == videoName:
+                    img_width = annotations[sid][vid]['width']
+                    pid_annots = annotations[sid][vid]['ped_annotations']
+                    vid_annots = annotations[sid][vid]['vehicle_annotations']
+                    for pid in sorted(pid_annots):
+                        num_pedestrians += 1
 
-                            frame_ids = pid_annots[pid]['frames']
-                            event_frame = pid_annots[pid]['attributes']['crossing_point']
+                        frame_ids = pid_annots[pid]['frames']
+                        event_frame = pid_annots[pid]['attributes']['crossing_point']
 
-                            end_idx = frame_ids.index(event_frame)
-                            boxes = pid_annots[pid]['bbox'][:end_idx + 1]
-                            frame_ids = frame_ids[: end_idx + 1]
-                            images = [self._get_image_path(sid, vid, f) for f in frame_ids]
-                            occlusions = pid_annots[pid]['occlusion'][:end_idx + 1]
+                        end_idx = frame_ids.index(event_frame)
+                        boxes = pid_annots[pid]['bbox'][:end_idx + 1]
+                        frame_ids = frame_ids[: end_idx + 1]
+                        images = [self._get_image_path(sid, vid, f) for f in frame_ids]
+                        occlusions = pid_annots[pid]['occlusion'][:end_idx + 1]
 
-                            if height_rng[0] > 0 or height_rng[1] < float('inf'):
-                                images, boxes, frame_ids, occlusions = self._height_check(height_rng,
-                                                                                          frame_ids, boxes,
-                                                                                          images, occlusions)
+                        if height_rng[0] > 0 or height_rng[1] < float('inf'):
+                            images, boxes, frame_ids, occlusions = self._height_check(height_rng,
+                                                                                        frame_ids, boxes,
+                                                                                        images, occlusions)
 
-                            if len(boxes) / seq_stride < params['min_track_size']:
-                                continue
+                        if len(boxes) / seq_stride < params['min_track_size']:
+                            continue
 
-                            if sq_ratio:
-                                boxes = [self._squarify(b, sq_ratio, img_width) for b in boxes]
+                        if sq_ratio:
+                            boxes = [self._squarify(b, sq_ratio, img_width) for b in boxes]
 
-                            image_seq.append(images[::seq_stride])
-                            box_seq.append(boxes[::seq_stride])
-                            center_seq.append([self._get_center(b) for b in boxes][::seq_stride])
-                            occ_seq.append(occlusions[::seq_stride])
+                        image_seq.append(images[::seq_stride])
+                        box_seq.append(boxes[::seq_stride])
+                        center_seq.append([self._get_center(b) for b in boxes][::seq_stride])
+                        occ_seq.append(occlusions[::seq_stride])
 
-                            ped_ids = [[pid]] * len(boxes)
-                            pids_seq.append(ped_ids[::seq_stride])
+                        ped_ids = [[pid]] * len(boxes)
+                        pids_seq.append(ped_ids[::seq_stride])
 
-                            intent = [[pid_annots[pid]['attributes']['intention_prob']]] * len(boxes)
-                            intent_seq.append(intent[::seq_stride])
+                        intent = [[pid_annots[pid]['attributes']['intention_prob']]] * len(boxes)
+                        intent_seq.append(intent[::seq_stride])
 
-                            acts = [[int(pid_annots[pid]['attributes']['crossing'] > 0)]] * len(boxes)
-                            activities.append(acts[::seq_stride])
+                        acts = [[int(pid_annots[pid]['attributes']['crossing'] > 0)]] * len(boxes)
+                        activities.append(acts[::seq_stride])
 
-                            gpsc_seq.append([[(vid_annots[i]['latitude'], vid_annots[i]['longitude'])]
-                                             for i in frame_ids][::seq_stride])
-                            obds_seq.append([[vid_annots[i]['OBD_speed']] for i in frame_ids][::seq_stride])
-                            gpss_seq.append([[vid_annots[i]['GPS_speed']] for i in frame_ids][::seq_stride])
-                            head_ang_seq.append([[vid_annots[i]['heading_angle']] for i in frame_ids][::seq_stride])
-                            yrp_seq.append([[(vid_annots[i]['yaw'], vid_annots[i]['roll'], vid_annots[i]['pitch'])]
+                        gpsc_seq.append([[(vid_annots[i]['latitude'], vid_annots[i]['longitude'])]
                                             for i in frame_ids][::seq_stride])
+                        obds_seq.append([[vid_annots[i]['OBD_speed']] for i in frame_ids][::seq_stride])
+                        gpss_seq.append([[vid_annots[i]['GPS_speed']] for i in frame_ids][::seq_stride])
+                        head_ang_seq.append([[vid_annots[i]['heading_angle']] for i in frame_ids][::seq_stride])
+                        yrp_seq.append([[(vid_annots[i]['yaw'], vid_annots[i]['roll'], vid_annots[i]['pitch'])]
+                                        for i in frame_ids][::seq_stride])
 
         print('Subset: %s' % image_set)
         print('Number of pedestrians: %d ' % num_pedestrians)
@@ -838,79 +717,3 @@ class PIE(object):
                 'intention_prob': intent_seq,
                 'activities': activities,
                 'image_dimension': self._get_dim()}
-
-    def _get_intention(self, image_set, annotations, **params):
-        """
-        Generates intention data.
-        :param image_set: Data split to use
-        :param annotations: Annotations database
-        :param params: Parameters to generate data (see generate_database)
-        :return: A dictionary of trajectories
-        """
-        print('---------------------------------------------------------')
-        print("Generating intention data")
-
-        num_pedestrians = 0
-        seq_stride = params['fstride']
-        sq_ratio = params['squarify_ratio']
-        height_rng = params['height_rng']
-
-        intention_prob, intention_binary = [], []
-        image_seq, pids_seq = [], []
-        box_seq, center_seq, occ_seq = [], [], []
-        set_ids = self._get_data_ids(image_set)
-
-        for sid in set_ids:
-            print(sid)
-            if sid == "set01":
-                for vid in sorted(annotations[sid]):
-                    if vid == "video_0001":
-                        img_width = annotations[sid][vid]['width']
-                        pid_annots = annotations[sid][vid]['ped_annotations']
-                        for pid in sorted(pid_annots):
-                            num_pedestrians += 1
-                            exp_start_frame = pid_annots[pid]['attributes']['exp_start_point']
-                            critical_frame = pid_annots[pid]['attributes']['critical_point']
-                            frames = pid_annots[pid]['frames']
-
-                            start_idx = frames.index(exp_start_frame)
-                            end_idx = frames.index(critical_frame)
-
-                            boxes = pid_annots[pid]['bbox'][start_idx:end_idx + 1]
-                            frame_ids = frames[start_idx:end_idx + 1]
-                            images = [self._get_image_path(sid, vid, f) for f in frame_ids]
-                            occlusions = pid_annots[pid]['occlusion'][start_idx:end_idx + 1]
-
-                            if height_rng[0] > 0 or height_rng[1] < float('inf'):
-                                images, boxes, frame_ids, occlusions = self._height_check(height_rng,
-                                                                                          frame_ids, boxes,
-                                                                                          images, occlusions)
-                            if len(boxes) / seq_stride < params['min_track_size']:
-                                continue
-
-                            if sq_ratio:
-                                boxes = [self._squarify(b, sq_ratio, img_width) for b in boxes]
-
-                            int_prob = [[pid_annots[pid]['attributes']['intention_prob']]] * len(boxes)
-                            int_bin = [[int(pid_annots[pid]['attributes']['intention_prob'] > 0.5)]] * len(boxes)
-
-                            image_seq.append(images[::seq_stride])
-                            box_seq.append(boxes[::seq_stride])
-                            occ_seq.append(occlusions[::seq_stride])
-
-                            intention_prob.append(int_prob[::seq_stride])
-                            intention_binary.append(int_bin[::seq_stride])
-
-                            ped_ids = [[pid]] * len(boxes)
-                            pids_seq.append(ped_ids[::seq_stride])
-
-        print('Subset: %s' % image_set)
-        print('Number of pedestrians: %d ' % num_pedestrians)
-        print('Total number of samples: %d ' % len(image_seq))
-
-        return {'image': image_seq,
-                'bbox': box_seq,
-                'occlusion': occ_seq,
-                'intention_prob': intention_prob,
-                'intention_binary': intention_binary,
-                'ped_id': pids_seq}

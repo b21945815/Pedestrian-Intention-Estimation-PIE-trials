@@ -27,7 +27,7 @@ def test_model(saved_files_path=None):
     #beh_seq_train = imdb.generate_data_trajectory_sequence('train', **data_opts)
     #saved_files_path = method_class.train(beh_seq_train, **train_opts, model_opts=model_opts)
 
-    beh_seq_test = imdb.generate_data_trajectory_sequence('test', **data_opts)
+    beh_seq_test = imdb.generate_data_trajectory_sequence('test', data_opts['min_track_size'])
     acc, auc, f1, precision, recall = method_class.test(beh_seq_test, saved_files_path)
 
 

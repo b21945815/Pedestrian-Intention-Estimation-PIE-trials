@@ -54,22 +54,21 @@ def run(config_file=None):
         configs['train_opts']['lr'] = model_configs['exp_opts']['lr'][dataset_idx]
         configs['train_opts']['epochs'] = model_configs['exp_opts']['epochs'][dataset_idx]
 
-        model_name = configs['model_opts']['model']
         for k, v in configs.items():
             print(k, v)
 
         imdb = PIE(data_path="PIE-master")
 
-        beh_seq_train = imdb.generate_data_trajectory_sequence('train', **configs['data_opts'])
-        beh_seq_val = imdb.generate_data_trajectory_sequence('val', **configs['data_opts'])
-        beh_seq_test = imdb.generate_data_trajectory_sequence('test', **configs['data_opts'])
+        beh_seq_train = imdb.generate_data_trajectory_sequence('train', configs['data_opts']['min_track_size'])
+        beh_seq_val = imdb.generate_data_trajectory_sequence('val', configs['data_opts']['min_track_size'])
+        beh_seq_test = imdb.generate_data_trajectory_sequence('test', configs['data_opts']['min_track_size'])
 
         # get the model
         method_class = action_prediction(configs['model_opts']['model'])(**configs['net_opts'])
-
         # train and save the model
         saved_files_path = method_class.train(beh_seq_train, beh_seq_val, **configs['train_opts'],
                                               model_opts=configs['model_opts'])
+
         # test and evaluate the model
         acc, auc, f1, precision, recall = method_class.test(beh_seq_test, saved_files_path)
 
