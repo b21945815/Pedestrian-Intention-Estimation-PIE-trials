@@ -1,29 +1,21 @@
 model_opts:
   model: Static
-# MultiRNN, SFRNN
-  obs_input_type: [local_box, local_surround,  pose, box]
+  obs_input_type: [local_box, local_surround]
 
-  #  'obs_input_type': The types of features to be used for train/test. The order
-  #  in which features are named in the list defines at what level
-  #  in the network the features are processed. e.g. ['local_context',
-  #  pose] would behave different to ['pose', 'local_context']
+  #  'obs_input_type': The types of features to be used for train/test.
+  #  The order in which features are named in the list defines at what level in the network the features are processed.
 
-  # [local_box, local_surround, local_context, pose, box, speed, scene_context]
   enlarge_ratio: 1.5 # enlarging the original bounding box to capture local spatial context
-  obs_length: 16 # observation length
-  time_to_event: [30, 60]  # 30, 60, [30,60]
+  obs_length: 16
+  time_to_event: [30, 60]
   overlap: 0.6
   balance_data: False # set to True to resample data so that the number of samples in each class is the same
   apply_class_weights: True # apply class weights to offset class imbalance
   dataset: pie
   normalize_boxes: True
-  generator: True # using generator is slower but uses less memory, otherwise up to 64GB RAM may be required to run some of the models
-  fusion_point: early # only for Two-Stream network
-  fusion_method: sum # only for Two-Stream network
+  generator: True # using generator is slower but uses less memory
 data_opts:
-  fstride: 1
-  seq_type: crossing
-  min_track_size: 16 # tracks shorter than this length will be discarded
+  min_track_size:
 net_opts:
   num_hidden_units: 256
   global_pooling: avg

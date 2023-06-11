@@ -1,6 +1,6 @@
 import time
 import yaml
-from utils import *
+from dataUtilities import *
 from tensorflow.keras.layers import Input, Concatenate, Dense
 from tensorflow.keras.layers import GRU, LSTM, GRUCell
 from tensorflow.keras.layers import Dropout, LSTMCell, RNN
@@ -43,7 +43,6 @@ class ActionPredict(object):
                                      ped_ids, save_path,
                                      data_type='train',
                                      crop_type='none',
-                                     crop_mode='warp',
                                      crop_resize_ratio=2,
                                      target_dim=(224, 224),
                                      process=True,
@@ -62,7 +61,6 @@ class ActionPredict(object):
                         'context' (A region containing pedestrian and their local surround)
                         'surround' (only the region around the pedestrian. Pedestrian appearance
                                     is suppressed)
-            crop_mode: How to resize ond/or pad the corpped images (see utils.img_pad)
             crop_resize_ratio: The ratio by which the image is enlarged to capture the context
                                Used by crop types 'context' and 'surround'.
             target_dim: Dimension of final visual features
@@ -74,9 +72,8 @@ class ActionPredict(object):
         """
 
         # load the feature files if exists
-        print("Generating {} features crop_type={} crop_mode={}\
-              \nsave_path={}, ".format(data_type, crop_type, crop_mode,
-                                       save_path))
+        print("Generating {} features crop_type={}\
+              \nsave_path={}, ".format(data_type, crop_type, save_path))
         preprocess_dict = {'vgg16': vgg16.preprocess_input, 'resnet50': resnet50.preprocess_input}
         backbone_dict = {'vgg16': vgg16.VGG16, 'resnet50': resnet50.ResNet50}
 
@@ -120,7 +117,7 @@ class ActionPredict(object):
                     if crop_type == 'bbox':
                         b = list(map(int, b[0:4]))
                         cropped_image = img_data[b[1]:b[3], b[0]:b[2], :]
-                        img_features = img_pad(cropped_image, mode=crop_mode, size=target_dim[0])
+                        img_features = img_pad(cropped_image, size=target_dim[0])
                     elif 'surround' in crop_type:
                         b_org = list(map(int, b[0:4])).copy()
                         bbox = jitter_bbox(imp, [b], crop_resize_ratio)[0]
@@ -128,7 +125,7 @@ class ActionPredict(object):
                         bbox = list(map(int, bbox[0:4]))
                         img_data[b_org[1]:b_org[3], b_org[0]:b_org[2], :] = 128
                         cropped_image = img_data[bbox[1]:bbox[3], bbox[0]:bbox[2], :]
-                        img_features = img_pad(cropped_image, mode='pad_resize', size=target_dim[0])
+                        img_features = img_pad(cropped_image, size=target_dim[0])
                     else:
                         raise ValueError('ERROR: Undefined value for crop_type {}!'.format(crop_type))
                     if preprocess_input is not None:
@@ -347,15 +344,13 @@ class ActionPredict(object):
                            'target_dim': model_opts.get('target_dim', (224, 224))}
         if 'local_box' in feature_type:
             data_gen_params['crop_type'] = 'bbox'
-            data_gen_params['crop_mode'] = 'pad_resize'
         elif 'surround' in feature_type:
             data_gen_params['crop_type'] = 'surround'
             data_gen_params['crop_resize_ratio'] = eratio
         save_folder_name = '_'.join([feature_type, aux_name])
         if 'surround' in feature_type:
             save_folder_name = '_'.join([save_folder_name, str(eratio)])
-        data_gen_params['save_path'], _ = get_path(save_folder=save_folder_name,
-                                                   dataset=dataset, save_root_folder='data/features')
+        data_gen_params['save_path'], _ = get_path(save_folder=save_folder_name, save_root_folder='data/features')
 
         return self.load_images_crop_and_process(data['image'], data['box_org'], data['ped_id'],
                                                  process=process, **data_gen_params)
@@ -392,12 +387,9 @@ class ActionPredict(object):
             if 'local' in d_type:
                 features, feat_shape = self.get_context_data(model_opts, data, data_type, d_type)
             elif 'pose' in d_type:
-                path_to_pose, _ = get_path(save_folder='poses',
-                                           dataset=dataset,
-                                           save_root_folder='data/features')
+                path_to_pose, _ = get_path(save_folder='poses', save_root_folder='data/features')
                 features = get_pose(data['image'],
                                     data['ped_id'],
-                                    data_type=data_type,
                                     file_path=path_to_pose)
                 feat_shape = features.shape[1:]
             else:
@@ -565,8 +557,7 @@ class ActionPredict(object):
         # Set the path for saving models
         model_folder_name = time.strftime("%d%b%Y-%Hh%Mm%Ss")
         path_params = {'save_folder': os.path.join(self.__class__.__name__, model_folder_name),
-                       'save_root_folder': 'data/models/',
-                       'dataset': model_opts['dataset']}
+                       'save_root_folder': 'data/models/'}
         model_path, _ = get_path(**path_params, file_name='model.h5')
 
         # Read train data
@@ -913,4 +904,3 @@ class DataGenerator(Sequence):
 
     def _generate_y(self, indices):
         return np.array(self.labels[indices])
-
