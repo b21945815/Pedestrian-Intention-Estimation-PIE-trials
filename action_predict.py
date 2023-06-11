@@ -6,8 +6,8 @@ from tensorflow.keras.layers import GRU, LSTM, GRUCell
 from tensorflow.keras.layers import Dropout, LSTMCell, RNN
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.callbacks import ReduceLROnPlateau, EarlyStopping, ModelCheckpoint
-from tensorflow.keras.applications import vgg16, resnet50
-from tensorflow.keras.optimizers import Adam, SGD, RMSprop
+from tensorflow.keras.applications import resnet50
+from tensorflow.keras.optimizers import RMSprop
 from tensorflow.keras import regularizers
 from tensorflow.keras.utils import Sequence
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
@@ -16,26 +16,23 @@ from sklearn.metrics import roc_auc_score, roc_curve, precision_recall_curve
 
 class ActionPredict(object):
     """
-        A base interface class for creating prediction models
+        A base interface class for prediction models
     """
 
     def __init__(self,
                  global_pooling='avg',
                  regularizer_val=0.0001,
-                 backbone='vgg16',
                  **kwargs):
         """
         Class init function
         Args:
             global_pooling: Pooling method for generating convolutional features
             regularizer_val: Regularization value for training
-            backbone: Backbone for generating convolutional features
         """
         # Network parameters
         self._regularizer_value = regularizer_val
         self._regularizer = regularizers.l2(regularizer_val)
         self._global_pooling = global_pooling
-        self._backbone = backbone
         self._generator = None  # use data generator for train/test
 
     # Processing images anf generate features
@@ -45,7 +42,6 @@ class ActionPredict(object):
                                      crop_type='none',
                                      crop_resize_ratio=2,
                                      target_dim=(224, 224),
-                                     process=True,
                                      regen_data=False):
         """
         Generate visual feature sequences by reading and processing images
@@ -64,7 +60,6 @@ class ActionPredict(object):
             crop_resize_ratio: The ratio by which the image is enlarged to capture the context
                                Used by crop types 'context' and 'surround'.
             target_dim: Dimension of final visual features
-            process: Whether process the raw images using a neural network
             regen_data: Whether regenerate visual features. This will overwrite the cached features
         Returns:
             Numpy array of visual features
@@ -74,15 +69,10 @@ class ActionPredict(object):
         # load the feature files if exists
         print("Generating {} features crop_type={}\
               \nsave_path={}, ".format(data_type, crop_type, save_path))
-        preprocess_dict = {'vgg16': vgg16.preprocess_input, 'resnet50': resnet50.preprocess_input}
-        backbone_dict = {'vgg16': vgg16.VGG16, 'resnet50': resnet50.ResNet50}
 
-        preprocess_input = preprocess_dict.get(self._backbone, None)
-        if process:
-            assert (self._backbone in ['vgg16', 'resnet50']), "{} is not supported".format(self._backbone)
+        preprocess_input = resnet50.preprocess_input
 
-        convnet = backbone_dict[self._backbone](input_shape=(224, 224, 3),
-                                                include_top=False, weights='imagenet') if process else None
+        convolutional_net = resnet50.ResNet50(input_shape=(224, 224, 3), include_top=False, weights='imagenet')
         sequences = []
         bbox_seq = bbox_sequences.copy()
         i = -1
@@ -130,9 +120,8 @@ class ActionPredict(object):
                         raise ValueError('ERROR: Undefined value for crop_type {}!'.format(crop_type))
                     if preprocess_input is not None:
                         img_features = preprocess_input(img_features)
-                    if process:
-                        expanded_img = np.expand_dims(img_features, axis=0)
-                        img_features = convnet.predict(expanded_img)
+                    expanded_img = np.expand_dims(img_features, axis=0)
+                    img_features = convolutional_net.predict(expanded_img)
                     # Save the file
                     if not os.path.exists(img_save_folder):
                         os.makedirs(img_save_folder)
@@ -140,7 +129,7 @@ class ActionPredict(object):
                         pickle.dump(img_features, fid, pickle.HIGHEST_PROTOCOL)
 
                 # if using the generator save the cached features path and size of the features
-                if process and not self._generator:
+                if not self._generator:
                     if self._global_pooling == 'max':
                         img_features = np.squeeze(img_features)
                         img_features = np.amax(img_features, axis=0)
@@ -162,11 +151,10 @@ class ActionPredict(object):
         if self._generator:
             with open(sequences[0][0], 'rb') as fid:
                 feat_shape = pickle.load(fid).shape
-            if process:
-                if self._global_pooling in ['max', 'avg']:
-                    feat_shape = feat_shape[-1]
-                else:
-                    feat_shape = np.prod(feat_shape)
+            if self._global_pooling in ['max', 'avg']:
+                feat_shape = feat_shape[-1]
+            else:
+                feat_shape = np.prod(feat_shape)
             if not isinstance(feat_shape, tuple):
                 feat_shape = (feat_shape,)
             feat_shape = (np.array(bbox_sequences).shape[1],) + feat_shape
@@ -332,13 +320,9 @@ class ActionPredict(object):
         print('\n#####################################')
         print('Generating {} {}'.format(feature_type, data_type))
         print('#####################################')
-        process = model_opts.get('process', True)
-        aux_name = [self._backbone]
-        if not process:
-            aux_name.append('raw')
-        aux_name = '_'.join(aux_name).strip('_')
+        backbone_name = ['resnet50']
+        backbone_name = '_'.join(backbone_name).strip('_')
         eratio = model_opts['enlarge_ratio']
-        dataset = model_opts['dataset']
 
         data_gen_params = {'data_type': data_type, 'crop_type': 'none',
                            'target_dim': model_opts.get('target_dim', (224, 224))}
@@ -347,13 +331,12 @@ class ActionPredict(object):
         elif 'surround' in feature_type:
             data_gen_params['crop_type'] = 'surround'
             data_gen_params['crop_resize_ratio'] = eratio
-        save_folder_name = '_'.join([feature_type, aux_name])
+        save_folder_name = '_'.join([feature_type, backbone_name])
         if 'surround' in feature_type:
             save_folder_name = '_'.join([save_folder_name, str(eratio)])
         data_gen_params['save_path'], _ = get_path(save_folder=save_folder_name, save_root_folder='data/features')
 
-        return self.load_images_crop_and_process(data['image'], data['box_org'], data['ped_id'],
-                                                 process=process, **data_gen_params)
+        return self.load_images_crop_and_process(data['image'], data['box_org'], data['ped_id'], **data_gen_params)
 
     def get_data(self, data_type, data_raw, model_opts):
         """
@@ -370,8 +353,6 @@ class ActionPredict(object):
 
         self._generator = model_opts.get('generator', False)
         data_type_sizes_dict = {}
-        process = model_opts.get('process', True)
-        dataset = model_opts['dataset']
         data, neg_count, pos_count = self.get_data_sequence(data_type, data_raw, model_opts)
 
         data_type_sizes_dict['box'] = data['box'].shape[1:]
@@ -404,7 +385,6 @@ class ActionPredict(object):
             _data = (DataGenerator(data=_data,
                                    labels=data['crossing'],
                                    data_sizes=data_sizes,
-                                   process=process,
                                    global_pooling=self._global_pooling,
                                    input_type_list=model_opts['obs_input_type'],
                                    batch_size=model_opts['batch_size'],
@@ -514,29 +494,11 @@ class ActionPredict(object):
 
         return callbacks
 
-    def get_optimizer(self, optimizer):
-        """
-        Return an optimizer object
-        Args:
-            optimizer: The type of optimizer. Supports 'adam', 'sgd', 'rmsprop'
-        Returns:
-            An optimizer object
-        """
-        assert optimizer.lower() in ['adam', 'sgd', 'rmsprop'], \
-            "{} optimizer is not implemented".format(optimizer)
-        if optimizer.lower() == 'adam':
-            return Adam
-        elif optimizer.lower() == 'sgd':
-            return SGD
-        elif optimizer.lower() == 'rmsprop':
-            return RMSprop
-
     def train(self, data_train,
               data_val=None,
               batch_size=32,
               epochs=60,
               lr=0.000005,
-              optimizer='adam',
               learning_scheduler=None,
               model_opts=None):
         """
@@ -573,7 +535,7 @@ class ActionPredict(object):
 
         # Train the model
         class_w = self.class_weights(model_opts['apply_class_weights'], data_train['count'])
-        optimizer = self.get_optimizer(optimizer)(lr=lr)
+        optimizer = RMSprop(learning_rate=lr)
         train_model.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
         callbacks = self.get_callbacks(learning_scheduler, model_path)
@@ -612,7 +574,6 @@ class ActionPredict(object):
         Args:
             data_test: Test data
             model_path: Path to folder containing the model and options
-            save_results: Save output of the model for visualization and analysis
         Returns:
             Evaluation metrics
         """
@@ -820,7 +781,6 @@ class DataGenerator(Sequence):
                  data=None,
                  labels=None,
                  data_sizes=None,
-                 process=False,
                  global_pooling=None,
                  input_type_list=None,
                  batch_size=32,
@@ -829,7 +789,6 @@ class DataGenerator(Sequence):
                  stack_feats=False):
         self.data = data
         self.labels = labels
-        self.process = process
         self.global_pooling = global_pooling
         self.input_type_list = input_type_list
         self.batch_size = 1 if len(self.labels) < batch_size else batch_size
@@ -864,23 +823,21 @@ class DataGenerator(Sequence):
                 img_features = pickle.load(fid)
             except:
                 img_features = pickle.load(fid, encoding='bytes')
-        if self.process:
-            if self.global_pooling == 'max':
-                img_features = np.squeeze(img_features)
-                img_features = np.amax(img_features, axis=0)
-                img_features = np.amax(img_features, axis=0)
-            elif self.global_pooling == 'avg':
-                img_features = np.squeeze(img_features)
-                img_features = np.average(img_features, axis=0)
-                img_features = np.average(img_features, axis=0)
-            else:
-                img_features = img_features.ravel()
+        if self.global_pooling == 'max':
+            img_features = np.squeeze(img_features)
+            img_features = np.amax(img_features, axis=0)
+            img_features = np.amax(img_features, axis=0)
+        elif self.global_pooling == 'avg':
+            img_features = np.squeeze(img_features)
+            img_features = np.average(img_features, axis=0)
+            img_features = np.average(img_features, axis=0)
+        else:
+            img_features = img_features.ravel()
         return img_features
 
     def _generate_X(self, indices):
         X = []
         for input_type_idx, input_type in enumerate(self.input_type_list):
-            print(input_type)
             features_batch = np.empty((self.batch_size, *self.data_sizes[input_type_idx]))
             num_ch = features_batch.shape[-1] // len(self.data[input_type_idx][0])
             for i, index in enumerate(indices):
