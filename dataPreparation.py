@@ -13,7 +13,8 @@ def delete_folder(address):
 
 
 pie_path = "PIE-master"
-configs_default = 'config_files/configs_default.yaml'
+# Right now, two of them is equal(for data preparation), so there is no need for "SFRNN.yaml" file
+configs_default = 'config_files/MultiRNN.yaml'
 
 with open(configs_default, 'r') as f:
     configs = yaml.safe_load(f)

@@ -11,19 +11,14 @@ def write_to_yaml(yaml_path=None, data=None):
     Args:
         yaml_path (None, optional): Description
         data (None, optional): results from the run
-    
-    Deleted Parameters:
-        exp_type (str, optional): experiment type
-        overwrite (bool, optional): whether to overwrite the results if the model exists
     """
-    with open(yaml_path, 'w') as yamlfile:
-        yaml.dump(data, yamlfile)
+    with open(yaml_path, 'w') as yamlFile:
+        yaml.dump(data, yamlFile)
 
 
 def run(config_file=None):
     """
     Run train and test on the dataset with parameters specified in configuration file.
-    
     Args:
         config_file: path to configuration file in yaml format
     """
