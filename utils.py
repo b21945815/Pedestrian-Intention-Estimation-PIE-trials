@@ -5,38 +5,10 @@ import numpy as np
 import cv2
 from tensorflow.keras.preprocessing.image import load_img
 
-# Data utilities
-
-
-def flip_pose(pose):
-    """
-    Flips a given pose coordinates
-    Args:
-        pose: The original pose
-    Return:
-        Flipped poses
-    """
-    # [nose(0,1), neck(2,3), Rsho(4,5),   Relb(6,7),   Rwri(8,9),
-    # 						 Lsho(10,11), Lelb(12,13), Lwri(14,15),
-    #						 Rhip(16,17), Rkne(18,19), Rank(20,21),
-    #                        Lhip(22,23), Lkne(24,25), Lank(26,27),
-    #						 Leye(28,29), Reye (30,31),
-    #						 Lear(32,33), Rear(34,35)]
-    flip_map = [0, 1, 2, 3, 10, 11, 12, 13, 14, 15, 4, 5, 6, 7, 8, 9, 22, 23, 24, 25,
-                26, 27, 16, 17, 18, 19, 20, 21, 30, 31, 28, 29, 34, 35, 32, 33]
-    new_pose = pose.copy()
-    flip_pose = [0] * len(new_pose)
-    for i in range(len(new_pose)):
-        if i % 2 == 0 and new_pose[i] != 0:
-            new_pose[i] = 1 - new_pose[i]
-        flip_pose[flip_map[i]] = new_pose[i]
-    return flip_pose
-
 
 def get_pose(img_sequences,
              ped_ids, file_path,
-             data_type='train',
-             dataset='pie'):
+             data_type='train'):
     """
     Reads the pie poses from saved .pkl files
     Args:
@@ -44,7 +16,6 @@ def get_pose(img_sequences,
         ped_ids: Sequences of pedestrian ids
         file_path: Path to where poses are saved
         data_type: Whether it is for training or testing
-        dataset: dataset name
     Return:
          Sequences of poses
     """
@@ -68,26 +39,14 @@ def get_pose(img_sequences,
         update_progress(i / len(img_sequences))
         pose = []
         for imp, p in zip(seq, pid):
-            flip_image = False
-            
-            if dataset == 'pie':
-                set_id = imp.split('\\')[-3]
-            elif dataset == 'jaad':
-                set_id = 'set01'
+
+            set_id = imp.split('\\')[-3]
             
             vid_id = imp.split('\\')[-2]
             img_name = imp.split('\\')[-1].split('.')[0]
-            if 'flip' in img_name:
-                img_name = img_name.replace('_flip', '')
-                flip_image = True
             k = img_name + '_' + p[0]
             if k in set_poses[set_id][vid_id].keys():
-                # [nose, neck, Rsho, Relb, Rwri, Lsho, Lelb, Lwri, Rhip, Rkne,
-                #  Rank, Lhip, Lkne, Lank, Leye, Reye, Lear, Rear, pt19]
-                if flip_image:
-                    pose.append(flip_pose(set_poses[set_id][vid_id][k]))
-                else:
-                    pose.append(set_poses[set_id][vid_id][k])
+                pose.append(set_poses[set_id][vid_id][k])
             else:
                 pose.append([0] * 36)
         poses_all.append(pose)
@@ -95,46 +54,22 @@ def get_pose(img_sequences,
     return poses_all
 
 
-def jitter_bbox(img_path, bbox, mode, ratio):
+def jitter_bbox(img_path, bbox, ratio):
     """
     Jitters the position or dimensions of the bounding box.
+    mode: increases the size of bounding box based on the given ratio
     Args:
-        img_path: The to the image
+        img_path: to the image
         bbox: The bounding box to be jittered
-        mode: The mode of jitterring. Options are,
-          'same' returns the bounding box unchanged
-          'enlarge' increases the size of bounding box based on the given ratio.
-          'random_enlarge' increases the size of bounding box by randomly sampling a value in [0,ratio)
-          'move' moves the center of the bounding box in each direction based on the given ratio
-          'random_move' moves the center of the bounding box in each direction by randomly
-                        sampling a value in [-ratio,ratio)
         ratio: The ratio of change relative to the size of the bounding box.
            For modes 'enlarge' and 'random_enlarge'
            the absolute value is considered.
     Return:
-        Jitterred bounding boxes
+        Jittered bounding boxes
     """
 
-    assert (mode in ['same', 'enlarge', 'move', 'random_enlarge', 'random_move']), \
-        'mode %s is invalid.' % mode
-
-    if mode == 'same':
-        return bbox
-
     img = load_img(img_path)
-
-    if mode in ['random_enlarge', 'enlarge']:
-        jitter_ratio = abs(ratio)
-    else:
-        jitter_ratio = ratio
-
-    if mode == 'random_enlarge':
-        jitter_ratio = np.random.random_sample() * jitter_ratio
-    elif mode == 'random_move':
-        # for ratio between (-jitter_ratio, jitter_ratio)
-        # for sampling the formula is [a,b), b > a,
-        # random_sample * (b-a) + a
-        jitter_ratio = np.random.random_sample() * jitter_ratio * 2 - jitter_ratio
+    jitter_ratio = abs(ratio)
 
     jit_boxes = []
     for b in bbox:
@@ -149,12 +84,8 @@ def jitter_bbox(img_path, bbox, mode, ratio):
         else:
             width_change = height_change
 
-        if mode in ['enlarge', 'random_enlarge']:
-            b[0] = b[0] - width_change // 2
-            b[1] = b[1] - height_change // 2
-        else:
-            b[0] = b[0] + width_change // 2
-            b[1] = b[1] + height_change // 2
+        b[0] = b[0] - width_change // 2
+        b[1] = b[1] - height_change // 2
 
         b[2] = b[2] + width_change // 2
         b[3] = b[3] + height_change // 2
@@ -162,30 +93,30 @@ def jitter_bbox(img_path, bbox, mode, ratio):
         # Checks to make sure the bbox is not exiting the image boundaries
         b = bbox_sanity_check(img.size, b)
         jit_boxes.append(b)
-    # elif crop_opts['mode'] == 'border_only':
+
     return jit_boxes
 
 
-def squarify(bbox, squarify_ratio, img_width):
+def squarify(bbox, img_width):
     """
     Changes the dimensions of a bounding box to a fixed ratio
     Args:
         bbox: Bounding box
-        squarify_ratio: Ratio to be changed to
         img_width: Image width
     Return:
-        Squarified boduning boxes
+        Squarified bounding boxes
     """
+    print(bbox)
     width = abs(bbox[0] - bbox[2])
     height = abs(bbox[1] - bbox[3])
-    width_change = height * squarify_ratio - width
+    width_change = height - width
     bbox[0] = bbox[0] - width_change / 2
     bbox[2] = bbox[2] + width_change / 2
     # Squarify is applied to bounding boxes in Matlab coordinate starting from 1
     if bbox[0] < 0:
         bbox[0] = 0
 
-    # check whether the new bounding box goes beyond image boarders
+    # check whether the new bounding box goes beyond image borders
     # If this is the case, the bounding box is shifted back
     if bbox[2] > img_width:
         # bbox[1] = str(-float(bbox[3]) + img_dimensions[0])
@@ -200,13 +131,12 @@ def update_progress(progress):
     Args:
         progress: Progress thus far
     """
-    barLength = 20  # Modify this to change the length of the progress bar
-    status = ""
+    barLength = 30
     if isinstance(progress, int):
         progress = float(progress)
 
     block = int(round(barLength * progress))
-    text = "\r[{}] {:0.2f}% {}".format("#" * block + "-" * (barLength - block), progress * 100, status)
+    text = "\r[{}] {:0.2f}%".format("#" * block + "-" * (barLength - block), progress * 100)
     sys.stdout.write(text)
     sys.stdout.flush()
 
@@ -292,18 +222,3 @@ def get_path(file_name='',
     if not os.path.exists(save_path):
         os.makedirs(save_path)
     return os.path.join(save_path, file_name), save_path
-
-
-def read_flow_file(optflow_path):
-    with open(optflow_path, 'rb') as f:
-        tag = np.fromfile(f, np.float32, count=1)
-        data2d = None
-        assert tag == 202021.25, 'Incorrect .flo file, {}'.format(optflow_path)
-        w = np.fromfile(f, np.int32, count=1)[0]
-        h = np.fromfile(f, np.int32, count=1)[0]
-        data2d = np.fromfile(f, np.float32, count=2 * w * h)
-        # reshape data into 3D array (columns, rows, channels)
-        return np.resize(data2d, (h, w, 2))
-
-
-

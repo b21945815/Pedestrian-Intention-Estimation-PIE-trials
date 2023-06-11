@@ -100,11 +100,7 @@ class ActionPredict(object):
                 img_name = imp.split('\\')[-1].split('.')[0]
                 img_save_folder = os.path.join(save_path, set_id, vid_id)
 
-                # Modify the path depending on crop mode
-                if crop_type == 'none':
-                    img_save_path = os.path.join(img_save_folder, img_name + '.pkl')
-                else:
-                    img_save_path = os.path.join(img_save_folder, img_name + '_' + p[0] + '.pkl')
+                img_save_path = os.path.join(img_save_folder, img_name + '_' + p[0] + '.pkl')
 
                 # Check whether the file exists
                 if os.path.exists(img_save_path) and not regen_data:
@@ -118,35 +114,23 @@ class ActionPredict(object):
                     if 'flip' in imp:
                         imp = imp.replace('_flip', '')
                         flip_image = True
-                    if crop_type == 'none':
-                        img_data = cv2.imread(imp)
-                        img_features = cv2.resize(img_data, target_dim)
-                        if flip_image:
-                            img_features = cv2.flip(img_features, 1)
+                    img_data = cv2.imread(imp)
+                    if flip_image:
+                        img_data = cv2.flip(img_data, 1)
+                    if crop_type == 'bbox':
+                        b = list(map(int, b[0:4]))
+                        cropped_image = img_data[b[1]:b[3], b[0]:b[2], :]
+                        img_features = img_pad(cropped_image, mode=crop_mode, size=target_dim[0])
+                    elif 'surround' in crop_type:
+                        b_org = list(map(int, b[0:4])).copy()
+                        bbox = jitter_bbox(imp, [b], crop_resize_ratio)[0]
+                        bbox = squarify(bbox, img_data.shape[1])
+                        bbox = list(map(int, bbox[0:4]))
+                        img_data[b_org[1]:b_org[3], b_org[0]:b_org[2], :] = 128
+                        cropped_image = img_data[bbox[1]:bbox[3], bbox[0]:bbox[2], :]
+                        img_features = img_pad(cropped_image, mode='pad_resize', size=target_dim[0])
                     else:
-                        img_data = cv2.imread(imp)
-                        if flip_image:
-                            img_data = cv2.flip(img_data, 1)
-                        if crop_type == 'bbox':
-                            b = list(map(int, b[0:4]))
-                            cropped_image = img_data[b[1]:b[3], b[0]:b[2], :]
-                            img_features = img_pad(cropped_image, mode=crop_mode, size=target_dim[0])
-                        elif 'context' in crop_type:
-                            bbox = jitter_bbox(imp, [b], 'enlarge', crop_resize_ratio)[0]
-                            bbox = squarify(bbox, 1, img_data.shape[1])
-                            bbox = list(map(int, bbox[0:4]))
-                            cropped_image = img_data[bbox[1]:bbox[3], bbox[0]:bbox[2], :]
-                            img_features = img_pad(cropped_image, mode='pad_resize', size=target_dim[0])
-                        elif 'surround' in crop_type:
-                            b_org = list(map(int, b[0:4])).copy()
-                            bbox = jitter_bbox(imp, [b], 'enlarge', crop_resize_ratio)[0]
-                            bbox = squarify(bbox, 1, img_data.shape[1])
-                            bbox = list(map(int, bbox[0:4]))
-                            img_data[b_org[1]:b_org[3], b_org[0]:b_org[2], :] = 128
-                            cropped_image = img_data[bbox[1]:bbox[3], bbox[0]:bbox[2], :]
-                            img_features = img_pad(cropped_image, mode='pad_resize', size=target_dim[0])
-                        else:
-                            raise ValueError('ERROR: Undefined value for crop_type {}!'.format(crop_type))
+                        raise ValueError('ERROR: Undefined value for crop_type {}!'.format(crop_type))
                     if preprocess_input is not None:
                         img_features = preprocess_input(img_features)
                     if process:
@@ -364,19 +348,12 @@ class ActionPredict(object):
         if 'local_box' in feature_type:
             data_gen_params['crop_type'] = 'bbox'
             data_gen_params['crop_mode'] = 'pad_resize'
-        elif 'local_context' in feature_type:
-            data_gen_params['crop_type'] = 'context'
-            data_gen_params['crop_resize_ratio'] = eratio
         elif 'surround' in feature_type:
             data_gen_params['crop_type'] = 'surround'
             data_gen_params['crop_resize_ratio'] = eratio
-        elif 'scene_context' in feature_type:
-            data_gen_params['crop_type'] = 'none'
-        save_folder_name = feature_type
-        if 'flow' not in feature_type:
-            save_folder_name = '_'.join([feature_type, aux_name])
-            if 'local_context' in feature_type or 'surround' in feature_type:
-                save_folder_name = '_'.join([save_folder_name, str(eratio)])
+        save_folder_name = '_'.join([feature_type, aux_name])
+        if 'surround' in feature_type:
+            save_folder_name = '_'.join([save_folder_name, str(eratio)])
         data_gen_params['save_path'], _ = get_path(save_folder=save_folder_name,
                                                    dataset=dataset, save_root_folder='data/features')
 
@@ -412,7 +389,7 @@ class ActionPredict(object):
         data_types = []
 
         for d_type in model_opts['obs_input_type']:
-            if 'local' in d_type or 'context' in d_type:
+            if 'local' in d_type:
                 features, feat_shape = self.get_context_data(model_opts, data, data_type, d_type)
             elif 'pose' in d_type:
                 path_to_pose, _ = get_path(save_folder='poses',
@@ -421,8 +398,7 @@ class ActionPredict(object):
                 features = get_pose(data['image'],
                                     data['ped_id'],
                                     data_type=data_type,
-                                    file_path=path_to_pose,
-                                    dataset=model_opts['dataset'])
+                                    file_path=path_to_pose)
                 feat_shape = features.shape[1:]
             else:
                 features = data[d_type]
@@ -913,16 +889,14 @@ class DataGenerator(Sequence):
     def _generate_X(self, indices):
         X = []
         for input_type_idx, input_type in enumerate(self.input_type_list):
+            print(input_type)
             features_batch = np.empty((self.batch_size, *self.data_sizes[input_type_idx]))
             num_ch = features_batch.shape[-1] // len(self.data[input_type_idx][0])
             for i, index in enumerate(indices):
                 if isinstance(self.data[input_type_idx][index][0], str):
                     cached_path_list = self.data[input_type_idx][index]
                     for j, cached_path in enumerate(cached_path_list):
-                        if 'flow' in input_type:
-                            img_features = read_flow_file(cached_path)
-                        else:
-                            img_features = self._get_img_features(cached_path)
+                        img_features = self._get_img_features(cached_path)
 
                         if len(cached_path_list) == 1:
                             # for static model if only one image in the sequence

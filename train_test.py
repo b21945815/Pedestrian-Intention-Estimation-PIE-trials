@@ -48,8 +48,6 @@ def run(config_file=None):
 
     # update model and training options from the config file
     for dataset_idx, dataset in enumerate(model_configs['exp_opts']['datasets']):
-        configs['model_opts']['overlap'] = 0.6
-        configs['model_opts']['dataset'] = dataset.split('_')[0]
         configs['train_opts']['batch_size'] = model_configs['exp_opts']['batch_size'][dataset_idx]
         configs['train_opts']['lr'] = model_configs['exp_opts']['lr'][dataset_idx]
         configs['train_opts']['epochs'] = model_configs['exp_opts']['epochs'][dataset_idx]
