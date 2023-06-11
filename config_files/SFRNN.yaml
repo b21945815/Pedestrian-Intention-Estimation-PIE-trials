@@ -1,19 +1,15 @@
 model_opts:
   model: SFRNN
-  #  'obs_input_type': The types of features to be used for train/test.
-  #  The order in which features are named in the list defines at what level in the network the features are processed.
   obs_input_type: [local_box, local_surround,  pose, box, speed]
   apply_class_weights: True
   normalize_boxes: True
   generator: True
-  enlarge_ratio: 1.5 # enlarging the original bounding box to capture local spatial context
+  enlarge_ratio: 1.5
   obs_length: 16
   time_to_event: [ 30, 60 ]
   overlap: 0.6
   balance_data: False
   dataset: pie
-data_opts:
-  min_track_size: 16
 net_opts:
   num_hidden_units: 256
   global_pooling: avg
@@ -21,7 +17,7 @@ net_opts:
   cell_type: gru
   backbone: vgg16
 exp_opts:
-  datasets: [pie]
+  datasets: pie
   batch_size: [32, 32, 32]
   epochs: [60, 40, 40]
   lr: [0.00005, 0.0000001, 0.0000001]

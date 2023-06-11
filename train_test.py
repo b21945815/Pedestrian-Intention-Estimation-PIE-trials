@@ -19,6 +19,7 @@ def write_to_yaml(yaml_path=None, data=None):
 def run(config_file=None):
     """
     Run train and test on the dataset with parameters specified in configuration file.
+
     Args:
         config_file: path to configuration file in yaml format
     """
