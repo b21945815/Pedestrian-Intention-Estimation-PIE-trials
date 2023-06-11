@@ -196,129 +196,6 @@ class ActionPredict(object):
 
         # Processing images anf generate features
 
-    def get_optical_flow(self, img_sequences, bbox_sequences,
-                         ped_ids, save_path,
-                         data_type='train',
-                         crop_type='none',
-                         crop_mode='warp',
-                         crop_resize_ratio=2,
-                         target_dim=(224, 224),
-                         regen_data=False):
-        """
-        Generate visual feature sequences by reading and processing images
-        Args:
-            img_sequences: Sequences of image na,es
-            bbox_sequences: Sequences of bounding boxes
-            ped_ids: Sequences of pedestrian ids
-            save_path: Path to the root folder to save features
-            data_type: The type of features, train/test/val
-            crop_type: The method to crop the images.
-            Options are 'none' (no cropping)
-                        'bbox' (crop using bounding box coordinates),
-                        'context' (A region containing pedestrian and their local surround)
-                        'surround' (only the region around the pedestrian. Pedestrian appearance
-                                    is suppressed)
-            crop_mode: How to resize ond/or pad the corpped images (see utils.img_pad)
-            crop_resize_ratio: The ratio by which the image is enlarged to capture the context
-                               Used by crop types 'context' and 'surround'.
-            target_dim: Dimension of final visual features
-            regen_data: Whether regenerate visual features. This will overwrite the cached features
-        Returns:
-            Numpy array of visual features
-            Tuple containing the size of features
-        """
-
-        # load the feature files if exists
-        print("Generating {} features crop_type={} crop_mode={}\
-               \nsave_path={}, ".format(data_type, crop_type, crop_mode, save_path))
-        sequences = []
-        bbox_seq = bbox_sequences.copy()
-        i = -1
-        # flow size (h,w)
-        flow_size = read_flow_file(img_sequences[0][0].replace('images', 'optical_flow').replace('png', 'flo')).shape
-        img_size = cv2.imread(img_sequences[0][0]).shape
-        # A ratio to adjust the dimension of bounding boxes (w,h)
-        box_resize_coef = (flow_size[1] / img_size[1], flow_size[0] / img_size[0])
-
-        for seq, pid in zip(img_sequences, ped_ids):
-            i += 1
-            update_progress(i / len(img_sequences))
-            flow_seq = []
-            for imp, b, p in zip(seq, bbox_seq[i], pid):
-                flip_image = False
-                set_id = imp.split('/')[-3]
-                vid_id = imp.split('/')[-2]
-                img_name = imp.split('/')[-1].split('.')[0]
-                optflow_save_folder = os.path.join(save_path, set_id, vid_id)
-                ofp = imp.replace('images', 'optical_flow').replace('png', 'flo')
-                # Modify the path depending on crop mode
-                if crop_type == 'none':
-                    optflow_save_path = os.path.join(optflow_save_folder, img_name + '.flo')
-                else:
-                    optflow_save_path = os.path.join(optflow_save_folder, img_name + '_' + p[0] + '.flo')
-
-                # Check whether the file exists
-                if os.path.exists(optflow_save_path) and not regen_data:
-                    if not self._generator:
-                        ofp_data = read_flow_file(optflow_save_path)
-                else:
-                    if 'flip' in imp:
-                        ofp = ofp.replace('_flip', '')
-                        flip_image = True
-                    if crop_type == 'none':
-                        ofp_image = read_flow_file(ofp)
-                        ofp_data = cv2.resize(ofp_image, target_dim)
-                        if flip_image:
-                            ofp_data = cv2.flip(ofp_data, 1)
-                    else:
-                        ofp_image = read_flow_file(ofp)
-                        # Adjust the size of bbox according to the dimensions of flow map
-                        b = list(map(int, [b[0] * box_resize_coef[0], b[1] * box_resize_coef[1],
-                                           b[2] * box_resize_coef[0], b[3] * box_resize_coef[1]]))
-                        if flip_image:
-                            ofp_image = cv2.flip(ofp_image, 1)
-                        if crop_type == 'bbox':
-                            cropped_image = ofp_image[b[1]:b[3], b[0]:b[2], :]
-                            ofp_data = img_pad(cropped_image, mode=crop_mode, size=target_dim[0])
-                        elif 'context' in crop_type:
-                            bbox = jitter_bbox(imp, [b], 'enlarge', crop_resize_ratio)[0]
-                            bbox = squarify(bbox, 1, ofp_image.shape[1])
-                            bbox = list(map(int, bbox[0:4]))
-                            cropped_image = ofp_image[bbox[1]:bbox[3], bbox[0]:bbox[2], :]
-                            ofp_data = img_pad(cropped_image, mode='pad_resize', size=target_dim[0])
-                        elif 'surround' in crop_type:
-                            b_org = b.copy()
-                            bbox = jitter_bbox(imp, [b], 'enlarge', crop_resize_ratio)[0]
-                            bbox = squarify(bbox, 1, ofp_image.shape[1])
-                            bbox = list(map(int, bbox[0:4]))
-                            ofp_image[b_org[1]:b_org[3], b_org[0]: b_org[2], :] = 0
-                            cropped_image = ofp_image[bbox[1]:bbox[3], bbox[0]:bbox[2], :]
-                            ofp_data = img_pad(cropped_image, mode='pad_resize', size=target_dim[0])
-                        else:
-                            raise ValueError('ERROR: Undefined value for crop_type {}!'.format(crop_type))
-
-                    # Save the file
-                    if not os.path.exists(optflow_save_folder):
-                        os.makedirs(optflow_save_folder)
-                    write_flow(ofp_data, optflow_save_path)
-
-                # if using the generator save the cached features path and size of the features
-                if self._generator:
-                    flow_seq.append(optflow_save_path)
-                else:
-                    flow_seq.append(ofp_data)
-            sequences.append(flow_seq)
-        sequences = np.array(sequences)
-        # compute size of the features after the processing
-        if self._generator:
-            feat_shape = read_flow_file(sequences[0][0]).shape
-            if not isinstance(feat_shape, tuple):
-                feat_shape = (feat_shape,)
-            feat_shape = (np.array(bbox_sequences).shape[1],) + feat_shape
-        else:
-            feat_shape = sequences.shape[1:]
-        return sequences, feat_shape
-
     def get_data_sequence(self, data_type, data_raw, opts):
         """
         Generates raw sequences from a given dataset
@@ -502,17 +379,9 @@ class ActionPredict(object):
                 save_folder_name = '_'.join([save_folder_name, str(eratio)])
         data_gen_params['save_path'], _ = get_path(save_folder=save_folder_name,
                                                    dataset=dataset, save_root_folder='data/features')
-        if 'flow' in feature_type:
-            return self.get_optical_flow(data['image'],
-                                         data['box_org'],
-                                         data['ped_id'],
-                                         **data_gen_params)
-        else:
-            return self.load_images_crop_and_process(data['image'],
-                                                     data['box_org'],
-                                                     data['ped_id'],
-                                                     process=process,
-                                                     **data_gen_params)
+
+        return self.load_images_crop_and_process(data['image'], data['box_org'], data['ped_id'],
+                                                 process=process, **data_gen_params)
 
     def get_data(self, data_type, data_raw, model_opts):
         """

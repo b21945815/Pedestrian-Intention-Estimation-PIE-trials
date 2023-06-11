@@ -1,3 +1,4 @@
+import os
 from pie_data import PIE
 import yaml
 import shutil
@@ -40,19 +41,20 @@ imdb = PIE(data_path=pie_path)
 method_class = action_prediction("MultiRNN")(**configs['net_opts'])
 for setName in setList:
     if setName in ['set01', 'set02', 'set04']:
-        data_type = 'train'
+        set_type = 'train'
     elif setName in ['set05', 'set06']:
-        data_type = 'val'
+        set_type = 'val'
     else:
-        data_type = 'test'
-    print(setName)
+        set_type = 'test'
     videoList = videoSet[setName]
     for videoName in videoList:
-        print(videoName)
         imdb.extract_and_save_images(setName, videoName)
-        dataSequence = imdb.generate_data_trajectory_sequence(data_type, min_track_size, setName, videoName)
-        data, _, _ = method_class.get_data_sequence(data_type, dataSequence, configs['model_opts'])
-        method_class.get_context_data(configs['model_opts'], data, data_type, 'local_box')
-        method_class.get_context_data(configs['model_opts'], data, data_type, 'local_surround')
+        dataSequence = imdb.generate_data_trajectory_sequence(set_type, min_track_size, setName, videoName)
+        dataInput, _, _ = method_class.get_data_sequence(set_type, dataSequence, configs['model_opts'])
+        method_class.get_context_data(configs['model_opts'], dataInput, set_type, 'local_box')
+        method_class.get_context_data(configs['model_opts'], dataInput, set_type, 'local_surround')
         delete_folder(
             "C://Users//90553//Desktop//Kod//python//Group418//PIE-master//images//" + setName + "//" + videoName)
+        os.remove(
+            "C://Users//90553//Desktop//Kod//python//Group418//PIE-master//PIE_clips//"
+            + setName + "//" + videoName + ".mp4")

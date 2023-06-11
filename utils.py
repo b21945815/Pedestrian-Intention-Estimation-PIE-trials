@@ -44,6 +44,7 @@ def get_pose(img_sequences,
         ped_ids: Sequences of pedestrian ids
         file_path: Path to where poses are saved
         data_type: Whether it is for training or testing
+        dataset: dataset name
     Return:
          Sequences of poses
     """
@@ -304,16 +305,5 @@ def read_flow_file(optflow_path):
         # reshape data into 3D array (columns, rows, channels)
         return np.resize(data2d, (h, w, 2))
 
-
-def write_flow(flow, optflow_path):
-    with open(optflow_path, 'wb') as f:
-        magic = np.array([202021.25], dtype=np.float32)
-        (height, width) = flow.shape[0:2]
-        w = np.array([width], dtype=np.int32)
-        h = np.array([height], dtype=np.int32)
-        magic.tofile(f)
-        w.tofile(f)
-        h.tofile(f)
-        flow.tofile(f)
 
 
