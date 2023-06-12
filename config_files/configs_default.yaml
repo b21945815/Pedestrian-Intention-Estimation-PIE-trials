@@ -6,9 +6,7 @@ model_opts:
   enlarge_ratio: 1.5 # enlarging the original bounding box to capture local spatial context
   obs_length: 16
   time_to_event: [30, 60]
-  balance_data: False
   apply_class_weights: True
-  dataset: pie
   normalize_boxes: True
   generator: True # using generator is slower but uses less memory
   overlap: 0.6
@@ -16,7 +14,7 @@ data_opts:
   min_track_size: 16
 net_opts:
   num_hidden_units: 256
-  regularizer_val: 0.0001
+  regularization_value: 0.0001
 train_opts:
   batch_size:
   epochs:

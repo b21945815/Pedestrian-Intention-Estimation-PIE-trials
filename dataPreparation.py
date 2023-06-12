@@ -50,7 +50,7 @@ for setName in setList:
     for videoName in videoList:
         imdb.extract_and_save_images(setName, videoName)
         dataSequence = imdb.generate_data_trajectory_sequence(set_type, min_track_size, setName, videoName)
-        dataInput, _, _ = method_class.get_data_sequence(set_type, dataSequence, configs['model_opts'])
+        dataInput, _, _ = method_class.get_data_sequence(dataSequence, configs['model_opts'])
         method_class.get_context_data(configs['model_opts'], dataInput, set_type, 'local_box')
         method_class.get_context_data(configs['model_opts'], dataInput, set_type, 'local_surround')
         delete_folder(

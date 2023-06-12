@@ -17,26 +17,18 @@ class ActionPredict(object):
     """
         A base interface class for prediction models
     """
+    def __init__(self, **kwargs):
 
-    def __init__(self, regularizer_val=0.0001, **kwargs):
-        """
-        Class init function
-        Args:
-            regularizer_val: Regularization value for training
-        """
         # Network parameters
-        self._regularizer_value = regularizer_val
-        self._regularizer = regularizers.l2(regularizer_val)
-        self._generator = None  # use data generator for train/test
+        self._regularizationProcess = regularizers.l2(kwargs['regularization_value'])
+        self._generator = None
 
-    # Processing images anf generate features
+    # Processing images and generate features
     def load_images_crop_and_process(self, img_sequences, bbox_sequences,
                                      ped_ids, save_path,
                                      data_type='train',
-                                     crop_type='none',
-                                     crop_resize_ratio=2,
-                                     target_dim=(224, 224),
-                                     regen_data=False):
+                                     crop_type='bbox',
+                                     crop_resize_ratio=2):
         """
         Generate visual feature sequences by reading and processing images
         Args:
@@ -46,15 +38,11 @@ class ActionPredict(object):
             save_path: Path to the root folder to save features
             data_type: The type of features, train/test/val
             crop_type: The method to crop the images.
-            Options are 'none' (no cropping)
-                        'bbox' (crop using bounding box coordinates),
-                        'context' (A region containing pedestrian and their local surround)
+            Options are 'bbox' (crop using bounding box coordinates),
                         'surround' (only the region around the pedestrian. Pedestrian appearance
                                     is suppressed)
             crop_resize_ratio: The ratio by which the image is enlarged to capture the context
                                Used by crop types 'context' and 'surround'.
-            target_dim: Dimension of final visual features
-            regen_data: Whether regenerate visual features. This will overwrite the cached features
         Returns:
             Numpy array of visual features
             Tuple containing the size of features
@@ -75,7 +63,6 @@ class ActionPredict(object):
             update_progress(i / len(img_sequences))
             img_seq = []
             for imp, b, p in zip(seq, bbox_seq[i], pid):
-                flip_image = False
                 set_id = imp.split('\\')[-3]
                 vid_id = imp.split('\\')[-2]
                 img_name = imp.split('\\')[-1].split('.')[0]
@@ -84,7 +71,7 @@ class ActionPredict(object):
                 img_save_path = os.path.join(img_save_folder, img_name + '_' + p[0] + '.pkl')
 
                 # Check whether the file exists
-                if os.path.exists(img_save_path) and not regen_data:
+                if os.path.exists(img_save_path):
                     if not self._generator:
                         with open(img_save_path, 'rb') as fid:
                             try:
@@ -92,16 +79,11 @@ class ActionPredict(object):
                             except:
                                 img_features = pickle.load(fid, encoding='bytes')
                 else:
-                    if 'flip' in imp:
-                        imp = imp.replace('_flip', '')
-                        flip_image = True
                     img_data = cv2.imread(imp)
-                    if flip_image:
-                        img_data = cv2.flip(img_data, 1)
                     if crop_type == 'bbox':
                         b = list(map(int, b[0:4]))
                         cropped_image = img_data[b[1]:b[3], b[0]:b[2], :]
-                        img_features = img_pad(cropped_image, size=target_dim[0])
+                        img_features = img_pad(cropped_image)
                     elif 'surround' in crop_type:
                         b_org = list(map(int, b[0:4])).copy()
                         bbox = jitter_bbox(imp, [b], crop_resize_ratio)[0]
@@ -109,7 +91,7 @@ class ActionPredict(object):
                         bbox = list(map(int, bbox[0:4]))
                         img_data[b_org[1]:b_org[3], b_org[0]:b_org[2], :] = 128
                         cropped_image = img_data[bbox[1]:bbox[3], bbox[0]:bbox[2], :]
-                        img_features = img_pad(cropped_image, size=target_dim[0])
+                        img_features = img_pad(cropped_image)
                     else:
                         raise ValueError('ERROR: Undefined value for crop_type {}!'.format(crop_type))
                     if preprocess_input is not None:
@@ -146,13 +128,10 @@ class ActionPredict(object):
 
         return sequences, feat_shape
 
-        # Processing images anf generate features
-
-    def get_data_sequence(self, data_type, data_raw, opts):
+    def get_data_sequence(self, data_raw, opts):
         """
         Generates raw sequences from a given dataset
         Args:
-            data_type: Split type of data, whether it is train, test or val
             data_raw: Raw tracks from the dataset
             opts:  Options for generating data samples
         Returns:
@@ -168,19 +147,11 @@ class ActionPredict(object):
              'crossing': data_raw['activities'].copy(),
              'image': data_raw['image'].copy()}
 
-        balance = opts['balance_data'] if data_type == 'train' else False
         obs_length = opts['obs_length']
         time_to_event = opts['time_to_event']
         normalize = opts['normalize_boxes']
+        d['speed'] = data_raw['obd_speed'].copy()
 
-        try:
-            d['speed'] = data_raw['obd_speed'].copy()
-        except KeyError:
-            d['speed'] = data_raw['vehicle_act'].copy()
-            print('Jaad dataset does not have speed information')
-            print('Vehicle actions are used instead')
-        if balance:
-            self.balance_data_samples(d, data_raw['image_dimension'][0])
         d['box_org'] = d['box'].copy()
         d['tte'] = []
 
@@ -190,7 +161,7 @@ class ActionPredict(object):
                     d[k][i] = d[k][i][- obs_length - time_to_event:-time_to_event]
             d['tte'] = [[time_to_event]] * len(data_raw['bbox'])
         else:
-            overlap = opts['overlap']  # if data_type == 'train' else 0.0
+            overlap = opts['overlap']
             olap_res = obs_length if overlap == 0 else int((1 - overlap) * obs_length)
             olap_res = 1 if olap_res < 1 else olap_res
             for k in d.keys():
@@ -228,77 +199,6 @@ class ActionPredict(object):
 
         return d, neg_count, pos_count
 
-    def balance_data_samples(self, d, img_width, balance_tag='crossing'):
-        """
-        Balances the ratio of positive and negative data samples. The less represented
-        data type is augmented by flipping the sequences
-        Args:
-            d: Sequence of data samples
-            img_width: Width of the images
-            balance_tag: The tag to balance the data based on
-        """
-        print("Balancing with respect to {} tag".format(balance_tag))
-        gt_labels = [gt[0] for gt in d[balance_tag]]
-        num_pos_samples = np.count_nonzero(np.array(gt_labels))
-        num_neg_samples = len(gt_labels) - num_pos_samples
-
-        # finds the indices of the samples with larger quantity
-        if num_neg_samples == num_pos_samples:
-            print('Positive and negative samples are already balanced')
-        else:
-            print('Unbalanced: \t Positive: {} \t Negative: {}'.format(num_pos_samples, num_neg_samples))
-            if num_neg_samples > num_pos_samples:
-                gt_augment = 1
-            else:
-                gt_augment = 0
-
-            num_samples = len(d[balance_tag])
-            for i in range(num_samples):
-                if d[balance_tag][i][0][0] == gt_augment:
-                    for k in d:
-                        if k == 'center':
-                            flipped = d[k][i].copy()
-                            flipped = [[img_width - c[0], c[1]]
-                                       for c in flipped]
-                            d[k].append(flipped)
-                        if k == 'box':
-                            flipped = d[k][i].copy()
-                            flipped = [np.array([img_width - b[2], b[1], img_width - b[0], b[3]])
-                                       for b in flipped]
-                            d[k].append(flipped)
-                        if k == 'image':
-                            flipped = d[k][i].copy()
-                            flipped = [im.replace('.png', '_flip.png') for im in flipped]
-                            d[k].append(flipped)
-                        if k in ['speed', 'ped_id', 'crossing', 'walking', 'looking']:
-                            d[k].append(d[k][i].copy())
-
-            gt_labels = [gt[0] for gt in d[balance_tag]]
-            num_pos_samples = np.count_nonzero(np.array(gt_labels))
-            num_neg_samples = len(gt_labels) - num_pos_samples
-            if num_neg_samples > num_pos_samples:
-                rm_index = np.where(np.array(gt_labels) == 0)[0]
-            else:
-                rm_index = np.where(np.array(gt_labels) == 1)[0]
-
-            # Calculate the difference of sample counts
-            dif_samples = abs(num_neg_samples - num_pos_samples)
-            # shuffle the indices
-            np.random.seed(42)
-            np.random.shuffle(rm_index)
-            # reduce the number of indices to the difference
-            rm_index = rm_index[0:dif_samples]
-
-            # update the data
-            for k in d:
-                seq_data_k = d[k]
-                d[k] = [seq_data_k[i] for i in range(0, len(seq_data_k)) if i not in rm_index]
-
-            new_gt_labels = [gt[0] for gt in d[balance_tag]]
-            num_pos_samples = np.count_nonzero(np.array(new_gt_labels))
-            print('Balanced:\t Positive: %d  \t Negative: %d\n'
-                  % (num_pos_samples, len(d[balance_tag]) - num_pos_samples))
-
     def get_context_data(self, model_opts, data, data_type, feature_type):
         print('\n#####################################')
         print('Generating {} {}'.format(feature_type, data_type))
@@ -307,8 +207,7 @@ class ActionPredict(object):
         backbone_name = '_'.join(backbone_name).strip('_')
         eratio = model_opts['enlarge_ratio']
 
-        data_gen_params = {'data_type': data_type, 'crop_type': 'none',
-                           'target_dim': model_opts.get('target_dim', (224, 224))}
+        data_gen_params = {'data_type': data_type, 'crop_type': 'none'}
         if 'local_box' in feature_type:
             data_gen_params['crop_type'] = 'bbox'
         elif 'surround' in feature_type:
@@ -318,7 +217,6 @@ class ActionPredict(object):
         if 'surround' in feature_type:
             save_folder_name = '_'.join([save_folder_name, str(eratio)])
         data_gen_params['save_path'], _ = get_path(save_folder=save_folder_name, save_root_folder='data/features')
-
         return self.load_images_crop_and_process(data['image'], data['box_org'], data['ped_id'], **data_gen_params)
 
     def get_data(self, data_type, data_raw, model_opts):
@@ -336,7 +234,7 @@ class ActionPredict(object):
 
         self._generator = model_opts.get('generator', False)
         data_type_sizes_dict = {}
-        data, neg_count, pos_count = self.get_data_sequence(data_type, data_raw, model_opts)
+        data, neg_count, pos_count = self.get_data_sequence(data_raw, model_opts)
 
         data_type_sizes_dict['box'] = data['box'].shape[1:]
         if 'speed' in data.keys():
@@ -437,7 +335,7 @@ class ActionPredict(object):
         neg_weight = sample_count['pos_count'] / total
         pos_weight = sample_count['neg_count'] / total
 
-        print("### Class weights: negative {:.3f} and positive {:.3f} ###".format(neg_weight, pos_weight))
+        print("\n### Class weights: negative {:.3f} and positive {:.3f} ###".format(neg_weight, pos_weight))
         return {0: neg_weight, 1: pos_weight}
 
     def get_callbacks(self, learning_scheduler, model_path):
@@ -626,9 +524,9 @@ class ActionPredict(object):
                    return_state=r_state,
                    return_sequences=r_sequence,
                    stateful=False,
-                   kernel_regularizer=self._regularizer,
-                   recurrent_regularizer=self._regularizer,
-                   bias_regularizer=self._regularizer,
+                   kernel_regularizer=self._regularizationProcess,
+                   recurrent_regularizer=self._regularizationProcess,
+                   bias_regularizer=self._regularizationProcess,
                    name=name)
 
 
@@ -639,16 +537,11 @@ class MultiRNN(ActionPredict):
     scenes under uncertainty." CVPR, 2018.
     """
 
-    def __init__(self,
-                 num_hidden_units=256, **kwargs):
-        """
-        Class init function
-        Args:
-            num_hidden_units: Number of recurrent hidden layers
-        """
+    def __init__(self, **kwargs):
+
         super().__init__(**kwargs)
         # Network parameters
-        self._num_hidden_units = num_hidden_units
+        self._num_hidden_units = kwargs['num_hidden_units']
         self._rnn = self._gru
         self._rnn_cell = GRUCell
 
@@ -683,16 +576,11 @@ class SFRNN(ActionPredict):
     BMVC, 2020. The original code can be found at https://github.com/aras62/SF-GRU
     """
 
-    def __init__(self,
-                 num_hidden_units=256,  **kwargs):
-        """
-        Class init function
-        Args:
-            num_hidden_units: Number of recurrent hidden layers
-        """
+    def __init__(self, **kwargs):
+
         super().__init__(**kwargs)
         # Network parameters
-        self._num_hidden_units = num_hidden_units
+        self._num_hidden_units = kwargs['num_hidden_units']
         self._rnn = self._gru
         self._rnn_cell = GRUCell
 

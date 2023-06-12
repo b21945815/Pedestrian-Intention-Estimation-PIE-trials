@@ -8,18 +8,12 @@ model_opts:
   obs_length: 16
   time_to_event: [ 30, 60 ]
   overlap: 0.6
-  balance_data: False
   dataset: pie
 net_opts:
   num_hidden_units: 256
-  regularizer_val: 0.0001
+  regularization_value: 0.0001
 exp_opts:
   datasets: pie
   batch_size: [32, 32, 32]
   epochs: [60, 40, 40]
   lr: [0.00005, 0.0000001, 0.0000001]
-train_opts:
-  batch_size:
-  epochs:
-  lr:
-  learning_scheduler: [checkpoint, plateau, early_stop]

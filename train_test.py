@@ -49,7 +49,6 @@ def run(config_file=None):
 
         for k, v in configs.items():
             print(k, v)
-
         imdb = PIE(data_path="PIE-master")
 
         beh_seq_train = imdb.generate_data_trajectory_sequence('train', configs['data_opts']['min_track_size'])
