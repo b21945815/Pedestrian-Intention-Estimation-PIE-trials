@@ -16,11 +16,9 @@ data_opts:
   min_track_size: 16
 net_opts:
   num_hidden_units: 256
-  global_pooling: avg
   regularizer_val: 0.0001
-  cell_type: gru
 train_opts:
-  batch_size: 32
-  epochs: 20
-  lr: 0.000005
-  learning_scheduler:
+  batch_size:
+  epochs:
+  lr:
+  learning_scheduler: [checkpoint, plateau, early_stop]

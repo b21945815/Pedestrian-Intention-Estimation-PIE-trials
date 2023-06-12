@@ -2,8 +2,7 @@ import time
 import yaml
 from dataUtilities import *
 from tensorflow.keras.layers import Input, Concatenate, Dense
-from tensorflow.keras.layers import GRU, LSTM, GRUCell
-from tensorflow.keras.layers import Dropout, LSTMCell, RNN
+from tensorflow.keras.layers import GRU, GRUCell
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.callbacks import ReduceLROnPlateau, EarlyStopping, ModelCheckpoint
 from tensorflow.keras.applications import resnet50
@@ -19,20 +18,15 @@ class ActionPredict(object):
         A base interface class for prediction models
     """
 
-    def __init__(self,
-                 global_pooling='avg',
-                 regularizer_val=0.0001,
-                 **kwargs):
+    def __init__(self, regularizer_val=0.0001, **kwargs):
         """
         Class init function
         Args:
-            global_pooling: Pooling method for generating convolutional features
             regularizer_val: Regularization value for training
         """
         # Network parameters
         self._regularizer_value = regularizer_val
         self._regularizer = regularizers.l2(regularizer_val)
-        self._global_pooling = global_pooling
         self._generator = None  # use data generator for train/test
 
     # Processing images anf generate features
@@ -130,31 +124,20 @@ class ActionPredict(object):
 
                 # if using the generator save the cached features path and size of the features
                 if not self._generator:
-                    if self._global_pooling == 'max':
-                        img_features = np.squeeze(img_features)
-                        img_features = np.amax(img_features, axis=0)
-                        img_features = np.amax(img_features, axis=0)
-                    elif self._global_pooling == 'avg':
-                        img_features = np.squeeze(img_features)
-                        img_features = np.average(img_features, axis=0)
-                        img_features = np.average(img_features, axis=0)
-                    else:
-                        img_features = img_features.ravel()
-
-                if self._generator:
-                    img_seq.append(img_save_path)
-                else:
+                    img_features = np.squeeze(img_features)
+                    img_features = np.average(img_features, axis=0)
+                    img_features = np.average(img_features, axis=0)
                     img_seq.append(img_features)
+                else:
+                    img_seq.append(img_save_path)
+
             sequences.append(img_seq)
         sequences = np.array(sequences)
         # compute size of the features after the processing
         if self._generator:
             with open(sequences[0][0], 'rb') as fid:
                 feat_shape = pickle.load(fid).shape
-            if self._global_pooling in ['max', 'avg']:
-                feat_shape = feat_shape[-1]
-            else:
-                feat_shape = np.prod(feat_shape)
+            feat_shape = feat_shape[-1]
             if not isinstance(feat_shape, tuple):
                 feat_shape = (feat_shape,)
             feat_shape = (np.array(bbox_sequences).shape[1],) + feat_shape
@@ -385,7 +368,6 @@ class ActionPredict(object):
             _data = (DataGenerator(data=_data,
                                    labels=data['crossing'],
                                    data_sizes=data_sizes,
-                                   global_pooling=self._global_pooling,
                                    input_type_list=model_opts['obs_input_type'],
                                    batch_size=model_opts['batch_size'],
                                    shuffle=data_type != 'test',
@@ -460,7 +442,7 @@ class ActionPredict(object):
 
     def get_callbacks(self, learning_scheduler, model_path):
         """
-        Creates a list of callabcks for training
+        Creates a list of callbacks for training
         Args:
             learning_scheduler: Whether to use callbacks
         Returns:
@@ -475,23 +457,19 @@ class ActionPredict(object):
                 default_params = {'monitor': 'val_loss',
                                   'min_delta': 1.0, 'patience': 5,
                                   'verbose': 1}
-                default_params.update(learning_scheduler['early_stop'])
                 callbacks.append(EarlyStopping(**default_params))
 
             if 'plateau' in learning_scheduler:
                 default_params = {'monitor': 'val_loss',
                                   'factor': 0.2, 'patience': 5,
                                   'min_lr': 1e-08, 'verbose': 1}
-                default_params.update(learning_scheduler['plateau'])
                 callbacks.append(ReduceLROnPlateau(**default_params))
 
             if 'checkpoint' in learning_scheduler:
                 default_params = {'filepath': model_path, 'monitor': 'val_loss',
                                   'save_best_only': True, 'save_weights_only': False,
                                   'save_freq': 'epoch', 'verbose': 2}
-                default_params.update(learning_scheduler['checkpoint'])
                 callbacks.append(ModelCheckpoint(**default_params))
-
         return callbacks
 
     def train(self, data_train,
@@ -509,7 +487,6 @@ class ActionPredict(object):
             batch_size: Batch size for training
             epochs: Number of epochs to train
             lr: Learning rate
-            optimizer: Optimizer for training
             learning_scheduler: Whether to use learning schedulers
             model_opts: Model options
         Returns:
@@ -654,25 +631,6 @@ class ActionPredict(object):
                    bias_regularizer=self._regularizer,
                    name=name)
 
-    def _lstm(self, name='lstm', r_state=False, r_sequence=False):
-        """
-        A helper function to create a single LSTM unit
-        Args:
-            name: Name of the layer
-            r_state: Whether to return the states of the LSTM
-            r_sequence: Whether to return a sequence
-        Return:
-            A LSTM unit
-        """
-        return LSTM(units=self._num_hidden_units,
-                    return_state=r_state,
-                    return_sequences=r_sequence,
-                    stateful=False,
-                    kernel_regularizer=self._regularizer,
-                    recurrent_regularizer=self._regularizer,
-                    bias_regularizer=self._regularizer,
-                    name=name)
-
 
 class MultiRNN(ActionPredict):
     """
@@ -682,19 +640,17 @@ class MultiRNN(ActionPredict):
     """
 
     def __init__(self,
-                 num_hidden_units=256,
-                 cell_type='gru', **kwargs):
+                 num_hidden_units=256, **kwargs):
         """
         Class init function
         Args:
             num_hidden_units: Number of recurrent hidden layers
-            cell_type: Type of RNN cell
         """
         super().__init__(**kwargs)
         # Network parameters
         self._num_hidden_units = num_hidden_units
-        self._rnn = self._gru if cell_type == 'gru' else self._lstm
-        self._rnn_cell = GRUCell if cell_type == 'gru' else LSTMCell
+        self._rnn = self._gru
+        self._rnn_cell = GRUCell
 
     def get_model(self, data_params):
         data_sizes = data_params['data_sizes']
@@ -728,19 +684,17 @@ class SFRNN(ActionPredict):
     """
 
     def __init__(self,
-                 num_hidden_units=256,
-                 cell_type='gru', **kwargs):
+                 num_hidden_units=256,  **kwargs):
         """
         Class init function
         Args:
             num_hidden_units: Number of recurrent hidden layers
-            cell_type: Type of RNN cell
         """
         super().__init__(**kwargs)
         # Network parameters
         self._num_hidden_units = num_hidden_units
-        self._rnn = self._gru if cell_type == 'gru' else self._lstm
-        self._rnn_cell = GRUCell if cell_type == 'gru' else LSTMCell
+        self._rnn = self._gru
+        self._rnn_cell = GRUCell
 
     def get_model(self, data_params):
         data_sizes = data_params['data_sizes']
@@ -781,7 +735,6 @@ class DataGenerator(Sequence):
                  data=None,
                  labels=None,
                  data_sizes=None,
-                 global_pooling=None,
                  input_type_list=None,
                  batch_size=32,
                  shuffle=True,
@@ -789,7 +742,6 @@ class DataGenerator(Sequence):
                  stack_feats=False):
         self.data = data
         self.labels = labels
-        self.global_pooling = global_pooling
         self.input_type_list = input_type_list
         self.batch_size = 1 if len(self.labels) < batch_size else batch_size
         self.data_sizes = data_sizes
@@ -823,16 +775,9 @@ class DataGenerator(Sequence):
                 img_features = pickle.load(fid)
             except:
                 img_features = pickle.load(fid, encoding='bytes')
-        if self.global_pooling == 'max':
-            img_features = np.squeeze(img_features)
-            img_features = np.amax(img_features, axis=0)
-            img_features = np.amax(img_features, axis=0)
-        elif self.global_pooling == 'avg':
-            img_features = np.squeeze(img_features)
-            img_features = np.average(img_features, axis=0)
-            img_features = np.average(img_features, axis=0)
-        else:
-            img_features = img_features.ravel()
+        img_features = np.squeeze(img_features)
+        img_features = np.average(img_features, axis=0)
+        img_features = np.average(img_features, axis=0)
         return img_features
 
     def _generate_X(self, indices):
