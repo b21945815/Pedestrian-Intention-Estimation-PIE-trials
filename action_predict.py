@@ -22,6 +22,7 @@ class ActionPredict(object):
         # Network parameters
         self._regularizationProcess = regularizers.l2(kwargs['regularization_value'])
         self._generator = None
+        self._num_hidden_units = kwargs['num_hidden_units']
 
     # Processing images and generate features
     def load_images_crop_and_process(self, img_sequences, bbox_sequences,
@@ -207,7 +208,7 @@ class ActionPredict(object):
         backbone_name = '_'.join(backbone_name).strip('_')
         eratio = model_opts['enlarge_ratio']
 
-        data_gen_params = {'data_type': data_type, 'crop_type': 'none'}
+        data_gen_params = {'data_type': data_type, 'crop_type': 'bbox'}
         if 'local_box' in feature_type:
             data_gen_params['crop_type'] = 'bbox'
         elif 'surround' in feature_type:
@@ -298,20 +299,6 @@ class ActionPredict(object):
             yaml.dump({'model_opts': model_opts,
                        'train_opts': {'batch_size': batch_size, 'epochs': epochs, 'lr': lr}},
                       fid, default_flow_style=False)
-        # with open(config_path, 'wt') as fid:
-        #     fid.write("####### Model options #######\n")
-        #     for k in opts:
-        #         fid.write("%s: %s\n" % (k, str(opts[k])))
-
-        #     fid.write("\n####### Network config #######\n")
-        #     # fid.write("%s: %s\n" % ('hidden_units', str(self._num_hidden_units)))
-        #     # fid.write("%s: %s\n" % ('reg_value ', str(self._regularizer_value)))
-
-        #     fid.write("\n####### Training config #######\n")
-        #     fid.write("%s: %s\n" % ('batch_size', str(batch_size)))
-        #     fid.write("%s: %s\n" % ('epochs', str(epochs)))
-        #     fid.write("%s: %s\n" % ('lr', str(lr)))
-
         print('Wrote configs to {}'.format(config_path))
 
     def class_weights(self, apply_weights, sample_count):
@@ -327,9 +314,6 @@ class ActionPredict(object):
             return None
 
         total = sample_count['neg_count'] + sample_count['pos_count']
-        # formula from sklearn
-        # neg_weight = (1 / sample_count['neg_count']) * (total) / 2.0
-        # pos_weight = (1 / sample_count['pos_count']) * (total) / 2.0
 
         # use simple ratio
         neg_weight = sample_count['pos_count'] / total
@@ -343,6 +327,7 @@ class ActionPredict(object):
         Creates a list of callbacks for training
         Args:
             learning_scheduler: Whether to use callbacks
+            model_path: The path of model
         Returns:
             A list of call backs or None if learning_scheduler is false
         """
@@ -400,10 +385,9 @@ class ActionPredict(object):
         # Read train data
         data_train = self.get_data('train', data_train, {**model_opts, 'batch_size': batch_size})
 
-        if data_val is not None:
-            data_val = self.get_data('val', data_val, {**model_opts, 'batch_size': batch_size})['data']
-            if self._generator:
-                data_val = data_val[0]
+        data_val = self.get_data('val', data_val, {**model_opts, 'batch_size': batch_size})['data']
+        if self._generator:
+            data_val = data_val[0]
 
         # Create model
         train_model = self.get_model(data_train['data_params'])
@@ -454,10 +438,6 @@ class ActionPredict(object):
         """
         with open(os.path.join(model_path, 'configs.yaml'), 'r') as fid:
             opts = yaml.safe_load(fid)
-            # try:
-            #     model_opts = pickle.load(fid)
-            # except:
-            #     model_opts = pickle.load(fid, encoding='bytes')
 
         test_model = load_model(os.path.join(model_path, 'model.h5'))
         test_model.summary()
@@ -541,7 +521,6 @@ class MultiRNN(ActionPredict):
 
         super().__init__(**kwargs)
         # Network parameters
-        self._num_hidden_units = kwargs['num_hidden_units']
         self._rnn = self._gru
         self._rnn_cell = GRUCell
 
@@ -580,7 +559,6 @@ class SFRNN(ActionPredict):
 
         super().__init__(**kwargs)
         # Network parameters
-        self._num_hidden_units = kwargs['num_hidden_units']
         self._rnn = self._gru
         self._rnn_cell = GRUCell
 
@@ -604,7 +582,6 @@ class SFRNN(ActionPredict):
                 x = self._rnn(name='enc_' + data_types[i], r_sequence=return_sequence)(x)
 
         model_output = Dense(1, activation='sigmoid', name='output_dense')(x)
-
         net_model = Model(inputs=network_inputs, outputs=model_output)
 
         return net_model
@@ -681,14 +658,14 @@ class DataGenerator(Sequence):
 
                         if len(cached_path_list) == 1:
                             # for static model if only one image in the sequence
-                            features_batch[i,] = img_features
+                            features_batch[i, ] = img_features
                         else:
                             if self.stack_feats and 'flow' in input_type:
                                 features_batch[i, ..., j * num_ch:j * num_ch + num_ch] = img_features
                             else:
-                                features_batch[i, j,] = img_features
+                                features_batch[i, j, ] = img_features
                 else:
-                    features_batch[i,] = self.data[input_type_idx][index]
+                    features_batch[i, ] = self.data[input_type_idx][index]
             X.append(features_batch)
         return X
 

@@ -37,8 +37,7 @@ def run(config_file=None):
             configs[k].update(model_configs[k])
 
     # Calculate min track size
-    tte = configs['model_opts']['time_to_event'] if isinstance(configs['model_opts']['time_to_event'], int) else \
-        configs['model_opts']['time_to_event'][1]
+    tte = configs['model_opts']['time_to_event'][1]
     configs['data_opts']['min_track_size'] = configs['model_opts']['obs_length'] + tte
 
     # update model and training options from the config file
