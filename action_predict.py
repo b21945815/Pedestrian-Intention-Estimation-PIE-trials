@@ -11,6 +11,7 @@ from tensorflow.keras import regularizers
 from tensorflow.keras.utils import Sequence
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn.metrics import roc_auc_score, roc_curve, precision_recall_curve
+import matplotlib.pyplot as plt
 
 
 class ActionPredict(object):
@@ -406,9 +407,26 @@ class ActionPredict(object):
                                   class_weight=class_w,
                                   verbose=1,
                                   callbacks=callbacks)
+
         if 'checkpoint' not in learning_scheduler:
             print('Train model is saved to {}'.format(model_path))
             train_model.save(model_path)
+
+        # Graph
+        plt.style.use("ggplot")
+        plt.figure()
+        plt.plot(np.arange(0, len(history.history["loss"])), history.history["loss"], label="train_loss")
+        plt.plot(np.arange(0, len(history.history["val_loss"])), history.history["val_loss"], label="val_loss")
+        plt.plot(np.arange(0, len(history.history["accuracy"])), history.history["accuracy"], label="train_acc")
+        plt.plot(np.arange(0, len(history.history["val_accuracy"])), history.history["val_accuracy"], label="val_acc")
+        plt.title("Training Loss and Accuracy on Dataset")
+        plt.xlabel("Epoch #")
+        plt.ylabel("Loss/Accuracy")
+        plt.legend(loc="lower left")
+        figure_path, _ = get_path(**path_params, file_name="figure_LR:" + str(lr) + "Epoch:" + str(epochs)
+                                                           + "BatchSize:" + str(batch_size) + ".png")
+        plt.savefig(figure_path, bbox_inches='tight')
+        plt.close()
 
         # Save data options and configurations
         model_opts_path, _ = get_path(**path_params, file_name='model_opts.pkl')
@@ -443,7 +461,6 @@ class ActionPredict(object):
         test_model.summary()
 
         test_data = self.get_data('test', data_test, {**opts['model_opts'], 'batch_size': 1})
-
         test_results = test_model.predict(test_data['data'][0],
                                           batch_size=1, verbose=1)
         acc = accuracy_score(test_data['data'][1], np.round(test_results))
@@ -453,14 +470,6 @@ class ActionPredict(object):
         precision = precision_score(test_data['data'][1], np.round(test_results))
         recall = recall_score(test_data['data'][1], np.round(test_results))
         pre_recall = precision_recall_curve(test_data['data'][1], test_results)
-
-        # THIS IS TEMPORARY, REMOVE BEFORE RELEASE
-        with open(os.path.join(model_path, 'test_output.pkl'), 'wb') as picklefile:
-            pickle.dump({'tte': test_data['tte'],
-                         'pid': test_data['ped_id'],
-                         'gt': test_data['data'][1],
-                         'y': test_results,
-                         'image': test_data['image']}, picklefile)
 
         print('acc:{:.2f} auc:{:.2f} f1:{:.2f} precision:{:.2f} recall:{:.2f}'.format(acc, auc, f1, precision, recall))
 
@@ -518,7 +527,6 @@ class MultiRNN(ActionPredict):
     """
 
     def __init__(self, **kwargs):
-
         super().__init__(**kwargs)
         # Network parameters
         self._rnn = self._gru

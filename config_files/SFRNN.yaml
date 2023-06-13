@@ -13,7 +13,7 @@ net_opts:
   num_hidden_units: 256
   regularization_value: 0.0001
 exp_opts:
-  datasets: pie
+  datasets: [pie, pie, pie]
   batch_size: [32, 32, 32]
-  epochs: [60, 40, 40]
-  lr: [0.00005, 0.0000001, 0.0000001]
+  epochs: [5, 5, 5]
+  lr: [0.00005, 0.000001, 0.0001]
