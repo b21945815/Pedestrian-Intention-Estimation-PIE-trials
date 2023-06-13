@@ -5,10 +5,9 @@ from tensorflow.keras.layers import Input, Concatenate, Dense
 from tensorflow.keras.layers import GRU, GRUCell
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.callbacks import ReduceLROnPlateau, EarlyStopping, ModelCheckpoint
-from tensorflow.keras.applications import resnet50
+from tensorflow.keras.applications import vgg16
 from tensorflow.keras.optimizers import RMSprop
 from tensorflow.keras import regularizers
-from tensorflow.keras.utils import Sequence
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn.metrics import roc_auc_score, roc_curve, precision_recall_curve
 import matplotlib.pyplot as plt
@@ -53,9 +52,9 @@ class ActionPredict(object):
         print("Generating {} features crop_type={}\
               \nsave_path={}, ".format(data_type, crop_type, save_path))
 
-        preprocess_input = resnet50.preprocess_input
+        preprocess_input = vgg16.preprocess_input
 
-        convolutional_net = resnet50.ResNet50(input_shape=(224, 224, 3), include_top=False, weights='imagenet')
+        convolutional_net = vgg16.VGG16(input_shape=(224, 224, 3), include_top=False, weights='imagenet')
         sequences = []
         bbox_seq = bbox_sequences.copy()
         i = -1
@@ -191,7 +190,7 @@ class ActionPredict(object):
         print('\n#####################################')
         print('Generating {} {}'.format(feature_type, data_type))
         print('#####################################')
-        backbone_name = ['resnet50']
+        backbone_name = ['vgg16']
         backbone_name = '_'.join(backbone_name).strip('_')
         eratio = model_opts['enlarge_ratio']
 

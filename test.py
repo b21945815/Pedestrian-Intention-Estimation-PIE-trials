@@ -34,5 +34,5 @@ def test_model(saved_folder_path=None):
 
 
 if __name__ == '__main__':
-    saved_files_path = "data/models/pie/SFRNN/13Jun2023-08h36m41s"
+    saved_files_path = "data/models/pie/SFRNN/13Jun2023-09h01m21s"
     test_model(saved_folder_path=saved_files_path)
