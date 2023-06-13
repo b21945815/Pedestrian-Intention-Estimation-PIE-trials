@@ -8,7 +8,6 @@ model_opts:
   time_to_event: [30, 60]
   apply_class_weights: True
   normalize_boxes: True
-  generator: True # using generator is slower but uses less memory
   overlap: 0.6
 data_opts:
   min_track_size: 16

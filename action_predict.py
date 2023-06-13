@@ -22,7 +22,6 @@ class ActionPredict(object):
 
         # Network parameters
         self._regularizationProcess = regularizers.l2(kwargs['regularization_value'])
-        self._generator = None
         self._num_hidden_units = kwargs['num_hidden_units']
 
     # Processing images and generate features
@@ -74,12 +73,11 @@ class ActionPredict(object):
 
                 # Check whether the file exists
                 if os.path.exists(img_save_path):
-                    if not self._generator:
-                        with open(img_save_path, 'rb') as fid:
-                            try:
-                                img_features = pickle.load(fid)
-                            except:
-                                img_features = pickle.load(fid, encoding='bytes')
+                    with open(img_save_path, 'rb') as fid:
+                        try:
+                            img_features = pickle.load(fid)
+                        except:
+                            img_features = pickle.load(fid, encoding='bytes')
                 else:
                     img_data = cv2.imread(imp)
                     if crop_type == 'bbox':
@@ -106,27 +104,15 @@ class ActionPredict(object):
                     with open(img_save_path, 'wb') as fid:
                         pickle.dump(img_features, fid, pickle.HIGHEST_PROTOCOL)
 
-                # if using the generator save the cached features path and size of the features
-                if not self._generator:
-                    img_features = np.squeeze(img_features)
-                    img_features = np.average(img_features, axis=0)
-                    img_features = np.average(img_features, axis=0)
-                    img_seq.append(img_features)
-                else:
-                    img_seq.append(img_save_path)
+                img_features = np.squeeze(img_features)
+                img_features = np.average(img_features, axis=0)
+                img_features = np.average(img_features, axis=0)
+                img_seq.append(img_features)
 
             sequences.append(img_seq)
         sequences = np.array(sequences)
         # compute size of the features after the processing
-        if self._generator:
-            with open(sequences[0][0], 'rb') as fid:
-                feat_shape = pickle.load(fid).shape
-            feat_shape = feat_shape[-1]
-            if not isinstance(feat_shape, tuple):
-                feat_shape = (feat_shape,)
-            feat_shape = (np.array(bbox_sequences).shape[1],) + feat_shape
-        else:
-            feat_shape = sequences.shape[1:]
+        feat_shape = sequences.shape[1:]
 
         return sequences, feat_shape
 
@@ -230,11 +216,10 @@ class ActionPredict(object):
             model_opts: Model options for generating data
         Returns:
             A dictionary containing, data, data parameters used for model generation,
-            effective dimension of data (the number of rgb images to be used calculated accorfing
+            effective dimension of data (the number of rgb images to be used calculated according
             to the length of optical flow window) and negative and positive sample counts
         """
 
-        self._generator = model_opts.get('generator', False)
         data_type_sizes_dict = {}
         data, neg_count, pos_count = self.get_data_sequence(data_raw, model_opts)
 
@@ -263,17 +248,7 @@ class ActionPredict(object):
             data_sizes.append(feat_shape)
             data_types.append(d_type)
 
-        # make the final data file to be returned
-        if self._generator:
-            _data = (DataGenerator(data=_data,
-                                   labels=data['crossing'],
-                                   data_sizes=data_sizes,
-                                   input_type_list=model_opts['obs_input_type'],
-                                   batch_size=model_opts['batch_size'],
-                                   shuffle=data_type != 'test',
-                                   to_fit=data_type != 'test'), data['crossing'])  # set y to None
-        else:
-            _data = (_data, data['crossing'])
+        _data = (_data, data['crossing'])
 
         return {'data': _data,
                 'ped_id': data['ped_id'],
@@ -383,14 +358,9 @@ class ActionPredict(object):
                        'save_root_folder': 'data/models/'}
         model_path, _ = get_path(**path_params, file_name='model.h5')
 
-        # Read train data
         data_train = self.get_data('train', data_train, {**model_opts, 'batch_size': batch_size})
-
         data_val = self.get_data('val', data_val, {**model_opts, 'batch_size': batch_size})['data']
-        if self._generator:
-            data_val = data_val[0]
 
-        # Create model
         train_model = self.get_model(data_train['data_params'])
 
         # Train the model
@@ -400,7 +370,7 @@ class ActionPredict(object):
 
         callbacks = self.get_callbacks(learning_scheduler, model_path)
         history = train_model.fit(x=data_train['data'][0],
-                                  y=None if self._generator else data_train['data'][1],
+                                  y=data_train['data'][1],
                                   batch_size=batch_size,
                                   epochs=epochs,
                                   validation_data=data_val,
@@ -423,8 +393,8 @@ class ActionPredict(object):
         plt.xlabel("Epoch #")
         plt.ylabel("Loss/Accuracy")
         plt.legend(loc="lower left")
-        figure_path, _ = get_path(**path_params, file_name="figure_LR:" + str(lr) + "Epoch:" + str(epochs)
-                                                           + "BatchSize:" + str(batch_size) + ".png")
+        figure_path, _ = get_path(**path_params, file_name=("figureLR" + str(lr) + "Epoch" + str(epochs)
+                                                            + "BatchSize" + str(batch_size) + ".png"))
         plt.savefig(figure_path, bbox_inches='tight')
         plt.close()
 
@@ -601,81 +571,3 @@ def action_prediction(model_name):
             return cls
     raise Exception('Model {} is not valid!'.format(model_name))
 
-
-class DataGenerator(Sequence):
-
-    def __init__(self,
-                 data=None,
-                 labels=None,
-                 data_sizes=None,
-                 input_type_list=None,
-                 batch_size=32,
-                 shuffle=True,
-                 to_fit=True,
-                 stack_feats=False):
-        self.data = data
-        self.labels = labels
-        self.input_type_list = input_type_list
-        self.batch_size = 1 if len(self.labels) < batch_size else batch_size
-        self.data_sizes = data_sizes
-        self.shuffle = shuffle
-        self.to_fit = to_fit
-        self.stack_feats = stack_feats
-        self.indices = None
-        self.on_epoch_end()
-
-    def __len__(self):
-        return int(np.floor(len(self.data[0]) / self.batch_size))
-
-    def on_epoch_end(self):
-        self.indices = np.arange(len(self.data[0]))
-        if self.shuffle:
-            np.random.shuffle(self.indices)
-
-    def __getitem__(self, index):
-        indices = self.indices[index * self.batch_size: (index + 1) * self.batch_size]
-
-        X = self._generate_X(indices)
-        if self.to_fit:
-            y = self._generate_y(indices)
-            return X, y
-        else:
-            return X
-
-    def _get_img_features(self, cached_path):
-        with open(cached_path, 'rb') as fid:
-            try:
-                img_features = pickle.load(fid)
-            except:
-                img_features = pickle.load(fid, encoding='bytes')
-        img_features = np.squeeze(img_features)
-        img_features = np.average(img_features, axis=0)
-        img_features = np.average(img_features, axis=0)
-        return img_features
-
-    def _generate_X(self, indices):
-        X = []
-        for input_type_idx, input_type in enumerate(self.input_type_list):
-            features_batch = np.empty((self.batch_size, *self.data_sizes[input_type_idx]))
-            num_ch = features_batch.shape[-1] // len(self.data[input_type_idx][0])
-            for i, index in enumerate(indices):
-                if isinstance(self.data[input_type_idx][index][0], str):
-                    cached_path_list = self.data[input_type_idx][index]
-                    for j, cached_path in enumerate(cached_path_list):
-                        img_features = self._get_img_features(cached_path)
-
-                        if len(cached_path_list) == 1:
-                            # for static model if only one image in the sequence
-                            features_batch[i, ] = img_features
-                        else:
-                            if self.stack_feats and 'flow' in input_type:
-                                features_batch[i, ..., j * num_ch:j * num_ch + num_ch] = img_features
-                            else:
-                                features_batch[i, j, ] = img_features
-                else:
-                    features_batch[i, ] = self.data[input_type_idx][index]
-            X.append(features_batch)
-        return X
-
-    def _generate_y(self, indices):
-        return np.array(self.labels[indices])

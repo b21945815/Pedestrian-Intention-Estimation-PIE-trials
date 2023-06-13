@@ -67,5 +67,5 @@ def run(config_file=None):
 
 if __name__ == '__main__':
     run(config_file="C:/Users/90553/Desktop/Kod/python/Group418/config_files/SFRNN.yaml")
-    # run(config_file="C:/Users/90553/Desktop/Kod/python/Group418/config_files/MultiRNN.yaml")
+    run(config_file="C:/Users/90553/Desktop/Kod/python/Group418/config_files/MultiRNN.yaml")
 
