@@ -10,12 +10,10 @@ Benchmark for evaluating pedestrian action prediction algorithms that inlcude co
 !!! hiperparametreler config_files içinde ama min_track_size ve time_to_event hiperparametrelerinden birini değişirseniz oluşturduğum veri setini tekrar oluşturmanız gerekir                                                                                                                                                       
                                                                                         
 # Çalıştırma
-1-) "dataPreparation.py" ile veriler elde edilir ama eksik dosyalar olduğundan dolayı bunu kullanmayınız. Verilerle beraber github'a yükledim.                                                                                               
+1-) "dataPreparation.py" ile veriler elde edilir ama eksik dosyalar olduğundan dolayı bunu kullanmayınız. Verilerle beraber github'a yükledim.                                                                                           
 2-) "train_test.py" run edilerek model çalıştırılır(bu hem train hem test yapıyor)       
-3-) "test.py" dosyasını isterseniz deneyebilirsiniz(saved_files_path = sys.argv[1] bu kısım hata verebilir)     
-4-) Sonra öncelikli olarak "pie_data.py" harici dosyalardaki kodları tekrar yazmaya odaklanmalıyız. Hatta bazı dosaları falan birleştiririz, fonksiyon adları ve yapı aynı olmasın diye vb.    
-Data fonksiyonları -Model ve train fonksiyonları -Test fonksiyonları, grafikler vb.    
-Herkes bu 3 parçadan birini yapsın diye düşünüyorum
+3-) "test.py" dosyası ile model'in kaydedildiği adresi vererek test edebilirsiniz  
+
 
 ## Authors
 
