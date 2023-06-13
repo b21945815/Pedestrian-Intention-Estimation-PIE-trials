@@ -9,7 +9,7 @@ model_opts:
   overlap: 0.6
   dataset: pie
 net_opts:
-  regularization_value: 0.001
+  regularization_value: 0.0001
 exp_opts:
   num_hidden_units: [256, 512]
   datasets: [pie, pie, pie]
