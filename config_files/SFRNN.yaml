@@ -9,10 +9,10 @@ model_opts:
   overlap: 0.6
   dataset: pie
 net_opts:
-  num_hidden_units: 256
-  regularization_value: 0.0001
+  regularization_value: 0.001
 exp_opts:
-  datasets: [pie, pie, pie, pie]
-  batch_size: [10, 10, 50, 50]
-  epochs: [100, 100, 100, 100]
-  lr: [0.00005, 0.0001, 0.00005, 0.0001]
+  num_hidden_units: [256, 512]
+  datasets: [pie, pie, pie]
+  batch_size: [10, 10, 10]
+  epochs: [100, 100, 100]
+  lr: [0.00005, 0.0001, 0.0005]

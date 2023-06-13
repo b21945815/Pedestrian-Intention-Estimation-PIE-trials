@@ -41,31 +41,33 @@ def run(config_file=None):
     configs['data_opts']['min_track_size'] = configs['model_opts']['obs_length'] + tte
 
     # update model and training options from the config file
-    for dataset_idx, dataset in enumerate(model_configs['exp_opts']['datasets']):
-        configs['train_opts']['batch_size'] = model_configs['exp_opts']['batch_size'][dataset_idx]
-        configs['train_opts']['lr'] = model_configs['exp_opts']['lr'][dataset_idx]
-        configs['train_opts']['epochs'] = model_configs['exp_opts']['epochs'][dataset_idx]
+    for counter, num_hidden_units in enumerate(model_configs['exp_opts']['num_hidden_units']):
+        configs['net_opts']['num_hidden_units'] = model_configs['exp_opts']['num_hidden_units'][counter]
+        for dataset_idx, dataset in enumerate(model_configs['exp_opts']['datasets']):
+            configs['train_opts']['batch_size'] = model_configs['exp_opts']['batch_size'][dataset_idx]
+            configs['train_opts']['lr'] = model_configs['exp_opts']['lr'][dataset_idx]
+            configs['train_opts']['epochs'] = model_configs['exp_opts']['epochs'][dataset_idx]
 
-        for k, v in configs.items():
-            print(k, v)
-        imdb = PIE(data_path="PIE-master")
+            for k, v in configs.items():
+                print(k, v)
+            imdb = PIE(data_path="PIE-master")
 
-        beh_seq_train = imdb.generate_data_trajectory_sequence('train', configs['data_opts']['min_track_size'])
-        beh_seq_val = imdb.generate_data_trajectory_sequence('val', configs['data_opts']['min_track_size'])
+            beh_seq_train = imdb.generate_data_trajectory_sequence('train', configs['data_opts']['min_track_size'])
+            beh_seq_val = imdb.generate_data_trajectory_sequence('val', configs['data_opts']['min_track_size'])
 
-        # get the model
-        method_class = action_prediction(configs['model_opts']['model'])(**configs['net_opts'])
-        # train and save the model
-        saved_files_path = method_class.train(beh_seq_train, beh_seq_val, **configs['train_opts'],
-                                              model_opts=configs['model_opts'])
+            # get the model
+            method_class = action_prediction(configs['model_opts']['model'])(**configs['net_opts'])
+            # train and save the model
+            saved_files_path = method_class.train(beh_seq_train, beh_seq_val, **configs['train_opts'],
+                                                  model_opts=configs['model_opts'])
 
-        data = configs
-        write_to_yaml(yaml_path=os.path.join(saved_files_path, 'configs.yaml'), data=data)
+            data = configs
+            write_to_yaml(yaml_path=os.path.join(saved_files_path, 'configs.yaml'), data=data)
 
-        print('Model saved to {}'.format(saved_files_path))
+            print('Model saved to {}'.format(saved_files_path))
 
 
 if __name__ == '__main__':
     run(config_file="C:/Users/90553/Desktop/Kod/python/Group418/config_files/SFRNN.yaml")
-    run(config_file="C:/Users/90553/Desktop/Kod/python/Group418/config_files/MultiRNN.yaml")
+    # run(config_file="C:/Users/90553/Desktop/Kod/python/Group418/config_files/MultiRNN.yaml")
 
