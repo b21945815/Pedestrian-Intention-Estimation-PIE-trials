@@ -22,7 +22,7 @@ def test_model(saved_folder_path=None):
 
     method_class = action_prediction(model_opts['model'])(**net_opts)
     beh_seq_test = imdb.generate_data_trajectory_sequence('test', data_opts['min_track_size'])
-    acc, auc, f1, precision, recall = method_class.test(beh_seq_test, saved_files_path)
+    acc, auc, f1, precision, recall = method_class.test(beh_seq_test, saved_folder_path)
     data = {}
     data['results'] = {}
     data['results']['acc'] = float(acc)
@@ -30,9 +30,19 @@ def test_model(saved_folder_path=None):
     data['results']['f1'] = float(f1)
     data['results']['precision'] = float(precision)
     data['results']['recall'] = float(recall)
-    write_to_yaml(yaml_path=os.path.join(saved_files_path, 'results.yaml'), data=data)
+    write_to_yaml(yaml_path=os.path.join(saved_folder_path, 'results.yaml'), data=data)
 
 
 if __name__ == '__main__':
-    saved_files_path = "data/models/pie/SFRNN/13Jun2023-11h59m55s"
-    test_model(saved_folder_path=saved_files_path)
+    test_model(saved_folder_path="data/models/pie/SFRNN/13Jun2023-16h25m20s")
+    test_model(saved_folder_path="data/models/pie/SFRNN/13Jun2023-16h32m11s")
+    test_model(saved_folder_path="data/models/pie/SFRNN/13Jun2023-16h38m54s")
+    test_model(saved_folder_path="data/models/pie/SFRNN/13Jun2023-16h45m53s")
+    test_model(saved_folder_path="data/models/pie/SFRNN/13Jun2023-17h09m33s")
+    test_model(saved_folder_path="data/models/pie/SFRNN/13Jun2023-17h33m20s")
+    test_model(saved_folder_path="data/models/pie/MultiRNN/13Jun2023-17h57m05s")
+    test_model(saved_folder_path="data/models/pie/MultiRNN/13Jun2023-18h03m21s")
+    test_model(saved_folder_path="data/models/pie/MultiRNN/13Jun2023-18h09m14s")
+    test_model(saved_folder_path="data/models/pie/MultiRNN/13Jun2023-18h15m09s")
+    test_model(saved_folder_path="data/models/pie/MultiRNN/13Jun2023-18h29m47s")
+    test_model(saved_folder_path="data/models/pie/MultiRNN/13Jun2023-18h44m51s")
