@@ -1,6 +1,6 @@
 model_opts:
   model: SFRNN
-  obs_input_type: [local_box, pose, local_surround, box, speed]
+  obs_input_type: [local_box, pose, local_surround, speed, box]
   apply_class_weights: True
   normalize_boxes: True
   enlarge_ratio: 1.5
