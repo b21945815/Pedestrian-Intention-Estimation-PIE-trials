@@ -19,3 +19,4 @@ train_opts:
   epochs:
   lr:
   learning_scheduler: [checkpoint, plateau, early_stop]
+elapsed_time:

@@ -2,7 +2,7 @@ import os
 import yaml
 from action_predict import action_prediction
 from pie_data import PIE
-
+import time
 
 def write_to_yaml(yaml_path=None, data=None):
     """
@@ -50,6 +50,7 @@ def run(config_file=None):
 
             for k, v in configs.items():
                 print(k, v)
+            start = time.time()
             imdb = PIE(data_path="PIE-master")
 
             beh_seq_train = imdb.generate_data_trajectory_sequence('train', configs['data_opts']['min_track_size'])
@@ -60,7 +61,8 @@ def run(config_file=None):
             # train and save the model
             saved_files_path = method_class.train(beh_seq_train, beh_seq_val, **configs['train_opts'],
                                                   model_opts=configs['model_opts'])
-
+            end = time.time()
+            configs['elapsed_time'] = end - start
             data = configs
             write_to_yaml(yaml_path=os.path.join(saved_files_path, 'configs.yaml'), data=data)
 
@@ -69,5 +71,5 @@ def run(config_file=None):
 
 if __name__ == '__main__':
     run(config_file="C:/Users/90553/Desktop/Kod/python/Group418/config_files/SFRNN.yaml")
-    # run(config_file="C:/Users/90553/Desktop/Kod/python/Group418/config_files/MultiRNN.yaml")
+    run(config_file="C:/Users/90553/Desktop/Kod/python/Group418/config_files/MultiRNN.yaml")
 

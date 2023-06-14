@@ -1,6 +1,6 @@
 model_opts:
   model: MultiRNN
-  obs_input_type: [local_box, local_surround,  pose, box]
+  obs_input_type: [local_box, pose, local_surround, box]
   apply_class_weights: True
   normalize_boxes: True
   enlarge_ratio: 1.5
