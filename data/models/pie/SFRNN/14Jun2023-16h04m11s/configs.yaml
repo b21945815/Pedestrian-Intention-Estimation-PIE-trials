@@ -1,0 +1,31 @@
+data_opts:
+  min_track_size: 76
+elapsed_time: 1561.4874160289764
+model_opts:
+  apply_class_weights: true
+  dataset: pie
+  enlarge_ratio: 1.5
+  model: SFRNN
+  normalize_boxes: true
+  obs_input_type:
+  - local_box
+  - local_surround
+  - pose
+  - speed
+  - box
+  obs_length: 16
+  overlap: 0.6
+  time_to_event:
+  - 30
+  - 60
+net_opts:
+  num_hidden_units: 512
+  regularization_value: 0.0001
+train_opts:
+  batch_size: 10
+  epochs: 100
+  learning_scheduler:
+  - checkpoint
+  - plateau
+  - early_stop
+  lr: 5.0e-05

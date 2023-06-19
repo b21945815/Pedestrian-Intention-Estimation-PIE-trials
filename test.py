@@ -5,6 +5,7 @@ import yaml
 from train import write_to_yaml
 import time
 
+
 def test_model(saved_folder_path=None):
 
     with open(os.path.join(saved_folder_path, 'configs.yaml'), 'r') as yaml_file:
@@ -36,15 +37,5 @@ def test_model(saved_folder_path=None):
 
 
 if __name__ == '__main__':
-    test_model(saved_folder_path="data/models/pie/MultiRNN/14Jun2023-14h37m43s")
-    test_model(saved_folder_path="data/models/pie/MultiRNN/14Jun2023-18h03m21s")
-    test_model(saved_folder_path="data/models/pie/MultiRNN/14Jun2023-18h09m14s")
-    test_model(saved_folder_path="data/models/pie/MultiRNN/14Jun2023-18h15m09s")
-    test_model(saved_folder_path="data/models/pie/MultiRNN/14Jun2023-18h29m47s")
-    test_model(saved_folder_path="data/models/pie/MultiRNN/14Jun2023-18h44m51s")
-    test_model(saved_folder_path="data/models/pie/SFRNN/14Jun2023-14h17m42s")
-    test_model(saved_folder_path="data/models/pie/SFRNN/14Jun2023-14h17m42s")
-    test_model(saved_folder_path="data/models/pie/SFRNN/14Jun2023-14h17m42s")
-    test_model(saved_folder_path="data/models/pie/SFRNN/14Jun2023-14h17m42s")
-    test_model(saved_folder_path="data/models/pie/SFRNN/14Jun2023-14h17m42s")
-    test_model(saved_folder_path="data/models/pie/SFRNN/14Jun2023-14h17m42s")
+    test_model(saved_folder_path="data/models/pie/SFRNN/14Jun2023-15h27m25s")
+
