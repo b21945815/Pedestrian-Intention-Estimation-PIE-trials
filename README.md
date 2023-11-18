@@ -10,7 +10,7 @@ We worked on only one model here. Data is prepared with [https://github.com/aras
 
 !!!hyperparameters are in config_files but if you change one of the hyperparameters min_track_size or time_to_event you have to re-make the dataset                                                                                                                                                  
                                                                                         
-# Çalıştırma
+# Running
 1-) Data is obtained with "dataPreparation.py", but do not use it because there are missing files(videos etc.). I uploaded data to github.
 2-) The model is run by running "train_test.py" (this does both train and test)
 3-) You can test it by providing the address where the model is saved with the "test.py" file.
