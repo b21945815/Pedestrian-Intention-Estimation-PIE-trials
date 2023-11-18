@@ -4,12 +4,13 @@ Benchmark for evaluating pedestrian action prediction algorithms that inlcude co
 
 
 
-**Kod buradan alındı: [https://github.com/ykotseruba/PedestrianActionBenchmark/tree/main]                                                                            
-**Paper: [I. Kotseruba, A. Rasouli, J.K. Tsotsos, Benchmark for evaluating pedestrian action prediction. WACV, 2021](https://openaccess.thecvf.com/content/WACV2021/papers/Kotseruba_Benchmark_for_Evaluating_Pedestrian_Action_Prediction_WACV_2021_paper.pdf)** (see [citation](#citation) information below).
+**Main source of codes: [https://github.com/ykotseruba/PedestrianActionBenchmark/tree/main]     
+We worked on only one model here. Data is prepared with [https://github.com/aras62/PIE/blob/master/pie_data.py]                                                                                                                       
+**Paper: [I. Kotseruba, A. Rasouli, J.K. Tsotsos, Benchmark for evaluating pedestrian action prediction. WACV, 2021](https://openaccess.thecvf.com/content/WACV2021/papers/Kotseruba_Benchmark_for_Evaluating_Pedestrian_Action_Prediction_WACV_2021_paper.pdf)** 
 
-!!! hiperparametreler config_files içinde ama min_track_size ve time_to_event hiperparametrelerinden birini değişirseniz oluşturduğum veri setini tekrar oluşturmanız gerekir                                                                                                                                                       
+!!!hyperparameters are in config_files but if you change one of the hyperparameters min_track_size or time_to_event you have to re-make the dataset                                                                                                                                                  
                                                                                         
 # Çalıştırma
-1-) "dataPreparation.py" ile veriler elde edilir ama eksik dosyalar olduğundan dolayı bunu kullanmayınız. Verilerle beraber github'a yükledim.                                                                                           
-2-) "train_test.py" run edilerek model çalıştırılır(bu hem train hem test yapıyor)       
-3-) "test.py" dosyası ile model'in kaydedildiği adresi vererek test edebilirsiniz  
+1-) Data is obtained with "dataPreparation.py", but do not use it because there are missing files(videos etc.). I uploaded data to github.
+2-) The model is run by running "train_test.py" (this does both train and test)
+3-) You can test it by providing the address where the model is saved with the "test.py" file.
